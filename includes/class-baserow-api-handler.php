@@ -28,7 +28,7 @@ class Baserow_API_Handler {
         
         $response = wp_remote_get($url, array(
             'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
+                'Authorization' => 'JWT ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
             'timeout' => 30
@@ -85,7 +85,7 @@ class Baserow_API_Handler {
         
         $response = wp_remote_get($url, array(
             'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
+                'Authorization' => 'JWT ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
             'timeout' => 30
@@ -154,7 +154,7 @@ class Baserow_API_Handler {
         $args = array(
             'method' => 'PATCH',
             'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
+                'Authorization' => 'JWT ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
             'body' => json_encode($formatted_data),
@@ -229,7 +229,7 @@ class Baserow_API_Handler {
 
         $response = wp_remote_get($url, array(
             'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
+                'Authorization' => 'JWT ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
             'timeout' => 30
@@ -285,7 +285,7 @@ class Baserow_API_Handler {
         
         $response = wp_remote_get($url, array(
             'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
+                'Authorization' => 'JWT ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
             'timeout' => 30

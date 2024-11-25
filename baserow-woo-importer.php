@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DSZ WooCommerce Product Importer
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.3.0
+ * Version: 1.2.19
  * Author: Andrew Waite
  * Requires PHP: 7.2
  */
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.3.0');
+define('BASEROW_IMPORTER_VERSION', '1.2.19');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -20,7 +20,6 @@ class Baserow_Woo_Importer {
     private $api_handler;
     private $product_importer;
     private $order_handler;
-    private $order_display;
     private $settings;
 
     public function __construct() {
@@ -150,10 +149,9 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/admin/class-baserow-admin-core.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-display.php';
     }
 
     private function initialize_components() {
@@ -161,8 +159,7 @@ class Baserow_Woo_Importer {
         $this->settings = new Baserow_Settings();
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler();
-        $this->order_display = new Baserow_Order_Display();
-        $this->admin = new Baserow_Admin_Core($this->api_handler, $this->product_importer, $this->settings);
+        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
     }
 }
 

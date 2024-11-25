@@ -1,26 +1,25 @@
-/* Order Display Styles */
-.supplier-group {
-    margin: 20px 0;
-    padding: 15px;
-    background: #fff;
+/* Product Import Styles */
+.products-table {
+    margin-top: 15px;
+}
+
+.loading-products {
+    padding: 20px;
+    text-align: center;
+    background: #f9f9f9;
     border: 1px solid #ddd;
-    border-radius: 4px;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+    margin: 10px 0;
 }
 
-.supplier-group h3 {
-    margin: 0 0 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-    color: #23282d;
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.status-imported {
+    color: #46b450;
 }
 
-/* Order Status Page Styles */
+.status-not-imported {
+    color: #dc3232;
+}
+
+/* Order Status Styles */
 .order-status-summary {
     margin: 20px 0;
     padding: 20px;
@@ -121,29 +120,6 @@
     border-bottom: 1px solid #eee;
 }
 
-/* Table Styles */
-.wp-list-table .column-actions {
-    width: 120px;
-}
-
-.wp-list-table .column-status {
-    width: 100px;
-}
-
-.wp-list-table .column-retry_count {
-    width: 80px;
-    text-align: center;
-}
-
-/* Button Styles */
-.retry-sync {
-    min-width: 80px;
-}
-
-.sync-failed-orders {
-    margin: 10px 0 !important;
-}
-
 /* Order Status in List */
 .order-status {
     display: inline-block;
@@ -155,6 +131,15 @@
 .status-wc-completed { color: #2e4453; }
 .status-wc-failed { color: #761919; }
 
+/* Button Styles */
+.retry-sync {
+    min-width: 80px;
+}
+
+.sync-failed-orders {
+    margin: 10px 0 !important;
+}
+
 /* Responsive Styles */
 @media screen and (max-width: 782px) {
     .status-counts {
@@ -164,11 +149,5 @@
 
     .status-count {
         width: 100%;
-    }
-
-    .wp-list-table .column-actions,
-    .wp-list-table .column-status,
-    .wp-list-table .column-retry_count {
-        width: auto;
     }
 }

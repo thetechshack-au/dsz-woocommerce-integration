@@ -7,8 +7,10 @@ jQuery(document).ready(function($) {
     var $importButton = $('#import-selected-products');
     var $importStatus = $('#import-status');
 
-    // Load products on page load
-    loadProducts();
+    // Load products on page load if we're on the import page
+    if ($productsList.length > 0) {
+        loadProducts();
+    }
 
     // Handle select all products
     $('#select-all-products').on('change', function() {
@@ -46,7 +48,7 @@ jQuery(document).ready(function($) {
             url: baserowAdmin.ajax_url,
             type: 'POST',
             data: {
-                action: 'get_baserow_products',
+                action: 'import_products',
                 nonce: baserowAdmin.nonce
             },
             success: function(response) {

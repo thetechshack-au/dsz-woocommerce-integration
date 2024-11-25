@@ -175,13 +175,14 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
 
         // Load product related classes
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
 
         // Load shipping related classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
@@ -189,9 +190,6 @@ class Baserow_Woo_Importer {
 
         // Load category related classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
-
-        // Load order related classes
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
 
         // Load AJAX handlers
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
@@ -205,6 +203,16 @@ class Baserow_Woo_Importer {
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler();
         $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
+
+        // Initialize AJAX handlers
+        $product_ajax = new Baserow_Product_Ajax();
+        $product_ajax->set_dependencies($this->product_importer, new Baserow_Product_Tracker());
+
+        $shipping_ajax = new Baserow_Shipping_Ajax();
+        $shipping_ajax->set_dependencies(new Baserow_Shipping_Zone_Manager(), new Baserow_Postcode_Mapper());
+
+        $category_ajax = new Baserow_Category_Ajax();
+        $category_ajax->set_dependencies(new Baserow_Category_Manager());
     }
 }
 

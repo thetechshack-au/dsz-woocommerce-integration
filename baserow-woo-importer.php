@@ -2,7 +2,8 @@
 /**
  * Plugin Name: DSZ WooCommerce Product Importer
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.3.1
+ * Version: 1.4.0
+ * Last Updated: 2024-01-09 14:00:00 UTC
  * Author: Andrew Waite
  * Requires PHP: 7.2
  */
@@ -11,7 +12,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.3.0');
+define('BASEROW_IMPORTER_VERSION', '1.4.0');
+define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-09 14:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -26,6 +28,21 @@ class Baserow_Woo_Importer {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
+        add_action('admin_notices', array($this, 'show_version_info'));
+    }
+
+    public function show_version_info() {
+        if (is_admin() && current_user_can('manage_options')) {
+            ?>
+            <div class="notice notice-info is-dismissible">
+                <p><?php printf(
+                    'DSZ WooCommerce Product Importer Version: %s (Last Updated: %s)',
+                    BASEROW_IMPORTER_VERSION,
+                    BASEROW_IMPORTER_LAST_UPDATED
+                ); ?></p>
+            </div>
+            <?php
+        }
     }
 
     public function activate() {
@@ -148,13 +165,38 @@ class Baserow_Woo_Importer {
     }
 
     private function load_dependencies() {
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
+        // Load traits first
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
+
+        // Load core classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
+
+        // Load product related classes
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+
+        // Load shipping related classes
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
+
+        // Load category related classes
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
+
+        // Load order related classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+
+        // Load AJAX handlers
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
     }
 
     private function initialize_components() {

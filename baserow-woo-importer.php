@@ -175,7 +175,6 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
 
         // Load product related classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
@@ -183,6 +182,9 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
+
+        // Load order related classes
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/orders/class-baserow-order-handler.php';
 
         // Load shipping related classes
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
@@ -195,13 +197,14 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
     }
 
     private function initialize_components() {
         $this->api_handler = new Baserow_API_Handler();
         $this->settings = new Baserow_Settings();
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
-        $this->order_handler = new Baserow_Order_Handler();
+        $this->order_handler = new Baserow_Order_Handler($this->api_handler);
         $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
 
         // Initialize AJAX handlers
@@ -213,6 +216,9 @@ class Baserow_Woo_Importer {
 
         $category_ajax = new Baserow_Category_Ajax();
         $category_ajax->set_dependencies(new Baserow_Category_Manager());
+
+        $order_ajax = new Baserow_Order_Ajax();
+        $order_ajax->set_dependencies($this->order_handler);
     }
 }
 

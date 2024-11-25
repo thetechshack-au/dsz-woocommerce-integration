@@ -27,16 +27,6 @@ class Baserow_Woo_Importer {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_styles'));
-    }
-
-    public function enqueue_admin_styles() {
-        wp_enqueue_style(
-            'baserow-admin-styles',
-            BASEROW_IMPORTER_PLUGIN_URL . 'assets/css/admin-style.css',
-            array(),
-            BASEROW_IMPORTER_VERSION
-        );
     }
 
     public function activate() {
@@ -97,7 +87,6 @@ class Baserow_Woo_Importer {
     }
 
     public function handle_product_deletion($post_id) {
-        // Check if this is a product
         if (get_post_type($post_id) !== 'product') {
             return;
         }
@@ -105,7 +94,6 @@ class Baserow_Woo_Importer {
         global $wpdb;
         $table_name = $wpdb->prefix . 'baserow_imported_products';
 
-        // Get the Baserow ID for this product
         $baserow_product = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT baserow_id FROM $table_name WHERE woo_product_id = %d",
@@ -117,13 +105,11 @@ class Baserow_Woo_Importer {
             return;
         }
 
-        // Update Baserow to mark the product as not imported
         $this->api_handler->update_product($baserow_product->baserow_id, array(
             'imported_to_woo' => false,
             'woo_product_id' => null
         ));
 
-        // Remove from tracking table
         $wpdb->delete(
             $table_name,
             array('woo_product_id' => $post_id),
@@ -164,7 +150,7 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/admin/class-baserow-admin-core.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-display.php';
@@ -176,7 +162,7 @@ class Baserow_Woo_Importer {
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler();
         $this->order_display = new Baserow_Order_Display();
-        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
+        $this->admin = new Baserow_Admin_Core($this->api_handler, $this->product_importer, $this->settings);
     }
 }
 

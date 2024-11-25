@@ -20,12 +20,23 @@ class Baserow_Woo_Importer {
     private $api_handler;
     private $product_importer;
     private $order_handler;
+    private $order_display;
     private $settings;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_styles'));
+    }
+
+    public function enqueue_admin_styles() {
+        wp_enqueue_style(
+            'baserow-admin-styles',
+            BASEROW_IMPORTER_PLUGIN_URL . 'assets/css/admin-style.css',
+            array(),
+            BASEROW_IMPORTER_VERSION
+        );
     }
 
     public function activate() {
@@ -71,6 +82,7 @@ class Baserow_Woo_Importer {
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             order_id bigint(20) NOT NULL,
             dsz_reference varchar(255) NOT NULL,
+            tracking_number varchar(255),
             sync_date datetime DEFAULT CURRENT_TIMESTAMP,
             status varchar(50) NOT NULL DEFAULT 'pending',
             last_error text,
@@ -155,6 +167,7 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-display.php';
     }
 
     private function initialize_components() {
@@ -162,6 +175,7 @@ class Baserow_Woo_Importer {
         $this->settings = new Baserow_Settings();
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler();
+        $this->order_display = new Baserow_Order_Display();
         $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
     }
 }

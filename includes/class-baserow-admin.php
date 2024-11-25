@@ -7,22 +7,28 @@ class Baserow_Admin {
     private $api_handler;
     private $product_importer;
     private $settings;
+    private $page_slug = 'baserow-importer';
 
     public function __construct($api_handler, $product_importer, $settings) {
         $this->api_handler = $api_handler;
         $this->product_importer = $product_importer;
         $this->settings = $settings;
-        $this->init_hooks();
-    }
 
-    private function init_hooks() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('wp_ajax_test_baserow_connection', array($this, 'test_baserow_connection'));
-        add_action('wp_ajax_search_products', array($this, 'search_products'));
-        add_action('wp_ajax_import_product', array($this, 'import_product'));
-        add_action('wp_ajax_delete_product', array($this, 'delete_product'));
-        add_action('wp_ajax_get_categories', array($this, 'get_categories'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+        add_action('wp_ajax_import_products', array($this, 'handle_import_ajax'));
+        add_action('wp_ajax_test_connection', array($this, 'handle_connection_test'));
+        
+        // Add order actions
+        add_action('woocommerce_order_actions', array($this, 'add_order_actions'));
+        add_action('woocommerce_order_action_sync_to_dsz', array($this, 'process_sync_to_dsz_action'));
+        
+        // Add order list bulk actions
+        add_filter('bulk_actions-edit-shop_order', array($this, 'add_order_bulk_actions'));
+        add_filter('handle_bulk_actions-edit-shop_order', array($this, 'handle_order_bulk_actions'), 10, 3);
+        
+        // Add admin pages
+        add_action('admin_menu', array($this, 'add_order_status_page'));
     }
 
     public function add_admin_menu() {
@@ -30,15 +36,14 @@ class Baserow_Admin {
             'Baserow Importer',
             'Baserow Importer',
             'manage_options',
-            'baserow-importer',
+            $this->page_slug,
             array($this, 'render_admin_page'),
-            'dashicons-database-import',
-            56
+            'dashicons-database-import'
         );
 
         add_submenu_page(
-            'baserow-importer',
-            'Baserow Settings',
+            $this->page_slug,
+            'Settings',
             'Settings',
             'manage_options',
             'baserow-importer-settings',
@@ -46,320 +51,201 @@ class Baserow_Admin {
         );
     }
 
-    public function enqueue_admin_scripts($hook) {
-        if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
-            return;
-        }
-
-        wp_enqueue_style(
-            'baserow-importer-css',
-            BASEROW_IMPORTER_PLUGIN_URL . 'assets/css/admin-style.css',
-            array(),
-            BASEROW_IMPORTER_VERSION
+    public function add_order_status_page() {
+        add_submenu_page(
+            $this->page_slug,
+            'DSZ Order Status',
+            'DSZ Order Status',
+            'manage_options',
+            'baserow-dsz-orders',
+            array($this, 'render_order_status_page')
         );
-
-        wp_enqueue_script(
-            'baserow-importer-js',
-            BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/admin-script.js',
-            array('jquery'),
-            BASEROW_IMPORTER_VERSION,
-            true
-        );
-
-        wp_localize_script('baserow-importer-js', 'baserowImporter', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('baserow_importer_nonce'),
-            'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer')
-        ));
     }
 
-    private function check_api_configuration() {
-        $api_url = get_option('baserow_api_url');
-        $api_token = get_option('baserow_api_token');
-        $table_id = get_option('baserow_table_id');
+    public function render_order_status_page() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'baserow_dsz_orders';
         
-        return !empty($api_url) && !empty($api_token) && !empty($table_id);
-    }
+        // Get orders with DSZ items
+        $orders = $wpdb->get_results("
+            SELECT o.*, p.post_status as order_status 
+            FROM {$table_name} o
+            JOIN {$wpdb->posts} p ON o.order_id = p.ID
+            ORDER BY o.sync_date DESC
+        ");
 
-    private function render_configuration_notice() {
         ?>
         <div class="wrap">
-            <h1>Baserow Product Importer</h1>
-            <div class="notice notice-warning">
-                <p>Please configure your Baserow settings before using the importer. 
-                   <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">Go to Settings</a>
-                </p>
-            </div>
-        </div>
-        <?php
-    }
-
-    private function render_import_results() {
-        $import_results = get_transient('baserow_import_results');
-        if ($import_results) {
-            delete_transient('baserow_import_results');
-            ?>
-            <div class="notice notice-success is-dismissible">
-                <p>Product imported successfully:</p>
-                <ul>
-                    <li>Title: <?php echo esc_html($import_results['title']); ?></li>
-                    <li>SKU: <?php echo esc_html($import_results['sku']); ?></li>
-                    <li>Category: <?php echo esc_html($import_results['category']); ?></li>
-                </ul>
-            </div>
-            <?php
-        }
-    }
-
-    public function render_admin_page() {
-        if (!$this->check_api_configuration()) {
-            $this->render_configuration_notice();
-            return;
-        }
-
-        $this->render_import_results();
-        ?>
-        <div class="wrap">
-            <h1>Baserow Product Importer</h1>
-
-            <div class="baserow-search-container">
-                <div class="baserow-search-controls">
-                    <input type="text" id="baserow-search" placeholder="Search products..." class="regular-text">
-                    <select id="baserow-category-filter">
-                        <option value="">All Categories</option>
-                    </select>
-                    <button class="button button-primary" id="search-products">Search Products</button>
-                </div>
-            </div>
-
-            <div id="baserow-products-grid" class="products-grid">
-                <div class="loading">Loading products...</div>
-            </div>
-
-            <div class="baserow-pagination">
-                <div class="tablenav-pages">
-                    <span class="pagination-links">
-                        <button class="button prev-page" aria-disabled="true" disabled>&lsaquo;</button>
-                        <span class="paging-input">
-                            <span class="current-page">1</span>
-                            <span class="total-pages"></span>
-                        </span>
-                        <button class="button next-page">&rsaquo;</button>
-                    </span>
-                </div>
-            </div>
-
-            <div id="loading-overlay" class="loading-overlay" style="display: none;">
-                <div class="loading-content">
-                    <span class="spinner is-active" style="float: none; margin: 0 10px 0 0;"></span>
-                    Processing...
-                </div>
-            </div>
-        </div>
-        <?php
-    }
-
-    public function get_categories() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $categories = $this->api_handler->get_categories();
-        
-        if (is_wp_error($categories)) {
-            wp_send_json_error(array('message' => $categories->get_error_message()));
-            return;
-        }
-
-        wp_send_json_success(array('categories' => $categories));
-    }
-
-    public function test_baserow_connection() {
-        check_ajax_referer('baserow_test_connection', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $result = $this->api_handler->test_connection();
-        wp_send_json($result ? 
-            array('success' => true, 'message' => 'Connection successful') : 
-            array('success' => false, 'message' => 'Connection failed')
-        );
-    }
-
-    public function search_products() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $search_term = sanitize_text_field($_POST['search'] ?? '');
-        $category = sanitize_text_field($_POST['category'] ?? '');
-        $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
-        
-        $result = $this->api_handler->search_products($search_term, $category, $page);
-        
-        if (is_wp_error($result)) {
-            wp_send_json_error(array('message' => $result->get_error_message()));
-            return;
-        }
-
-        if (!empty($result['results'])) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'baserow_imported_products';
-
-            foreach ($result['results'] as &$product) {
-                // Get WooCommerce product ID from tracking table
-                $tracking_data = $wpdb->get_row($wpdb->prepare(
-                    "SELECT woo_product_id FROM $table_name WHERE baserow_id = %s",
-                    $product['id']
-                ));
-
-                // Check if product exists in WooCommerce
-                $woo_product_id = $tracking_data ? $tracking_data->woo_product_id : null;
-                $woo_product = $woo_product_id ? wc_get_product($woo_product_id) : null;
-
-                // Set import statuses
-                $product['baserow_imported'] = !empty($product['imported_to_woo']);
-                $product['woo_exists'] = ($woo_product && $woo_product->get_status() !== 'trash');
-
-                if ($product['woo_exists']) {
-                    $product['woo_product_id'] = $woo_product_id;
-                    $product['woo_url'] = get_edit_post_link($woo_product_id, '');
-                } else if ($tracking_data) {
-                    // Clean up stale tracking record
-                    $wpdb->delete($table_name, array('baserow_id' => $product['id']));
-                }
-
-                // Get the first image URL
-                $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
-
-                // Format price with $ symbol
-                $product['price'] = !empty($product['Price']) ? number_format((float)$product['Price'], 2, '.', '') : '0.00';
-                
-                // Add cost price if available
-                $product['cost_price'] = !empty($product['Cost Price']) ? number_format((float)$product['Cost Price'], 2, '.', '') : null;
-
-                // Add Direct Import status
-                $product['DI'] = !empty($product['DI']) ? $product['DI'] : 'No';
-
-                // Add Free Shipping status (using au_free_shipping field)
-                $product['au_free_shipping'] = !empty($product['au_free_shipping']) ? $product['au_free_shipping'] : 'No';
-            }
-        }
-
-        wp_send_json_success($result);
-    }
-
-    public function delete_product() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-
-        if (!isset($_POST['product_id'])) {
-            wp_send_json_error(array('message' => 'Product ID not provided'));
-            return;
-        }
-
-        $woo_product_id = intval($_POST['product_id']);
-        $product = wc_get_product($woo_product_id);
-
-        if (!$product) {
-            wp_send_json_error(array('message' => 'Product not found'));
-            return;
-        }
-
-        // The deletion hook will handle updating Baserow and the tracking table
-        wp_delete_post($woo_product_id, true);
-
-        wp_send_json_success(array(
-            'message' => 'Product deleted successfully'
-        ));
-    }
-
-    private function validate_import_request() {
-        if (!check_ajax_referer('baserow_importer_nonce', 'nonce', false)) {
-            throw new Exception("Security check failed");
-        }
-
-        if (!isset($_POST['product_id'])) {
-            throw new Exception("Product ID not provided");
-        }
-
-        if (!class_exists('WooCommerce')) {
-            throw new Exception("WooCommerce is not active");
-        }
-    }
-
-    private function update_baserow_status($product_id, $woo_product_id) {
-        $update_data = array(
-            'imported_to_woo' => true,
-            'woo_product_id' => $woo_product_id,
-            'last_import_date' => date('Y-m-d')
-        );
-
-        Baserow_Logger::debug("Attempting to update Baserow with data: " . print_r($update_data, true));
-
-        $update_result = $this->api_handler->update_product($product_id, $update_data);
-
-        if (is_wp_error($update_result)) {
-            Baserow_Logger::error("Failed to update Baserow status: " . $update_result->get_error_message());
-            return false;
-        }
-
-        Baserow_Logger::info("Successfully updated Baserow status");
-        return true;
-    }
-
-    public function import_product() {
-        try {
-            // Set no-cache headers
-            nocache_headers();
+            <h1>DSZ Order Status</h1>
             
-            Baserow_Logger::info("Import product AJAX handler started");
+            <div class="tablenav top">
+                <div class="alignleft actions">
+                    <button type="button" class="button action sync-failed-orders">Retry Failed Orders</button>
+                </div>
+            </div>
 
-            $this->validate_import_request();
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>DSZ Reference</th>
+                        <th>Status</th>
+                        <th>Sync Date</th>
+                        <th>Retry Count</th>
+                        <th>Last Error</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($orders as $order): ?>
+                        <tr>
+                            <td>
+                                <a href="<?php echo get_edit_post_link($order->order_id); ?>">
+                                    #<?php echo $order->order_id; ?>
+                                </a>
+                                <span class="order-status status-<?php echo sanitize_html_class($order->order_status); ?>">
+                                    (<?php echo ucfirst($order->order_status); ?>)
+                                </span>
+                            </td>
+                            <td><?php echo esc_html($order->dsz_reference); ?></td>
+                            <td><?php echo esc_html(ucfirst($order->status)); ?></td>
+                            <td><?php echo esc_html($order->sync_date); ?></td>
+                            <td><?php echo esc_html($order->retry_count); ?></td>
+                            <td><?php echo esc_html($order->last_error); ?></td>
+                            <td>
+                                <?php if ($order->status !== 'success'): ?>
+                                    <button type="button" 
+                                            class="button retry-sync" 
+                                            data-order-id="<?php echo esc_attr($order->order_id); ?>">
+                                        Retry Sync
+                                    </button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
 
-            $product_id = sanitize_text_field($_POST['product_id']);
-            Baserow_Logger::info("Starting import for product ID: " . $product_id);
-
-            // Get product data
-            $product_data = $this->api_handler->get_product($product_id);
-            if (is_wp_error($product_data)) {
-                throw new Exception("Failed to get product data: " . $product_data->get_error_message());
+        <style>
+            .order-status {
+                display: inline-block;
+                margin-left: 5px;
+                color: #777;
             }
+            .status-wc-processing { color: #5b841b; }
+            .status-wc-completed { color: #2e4453; }
+            .status-wc-failed { color: #761919; }
+        </style>
 
-            // Import product
-            $result = $this->product_importer->import_product($product_id);
-            if (is_wp_error($result)) {
-                throw new Exception("Import failed: " . $result->get_error_message());
-            }
+        <script>
+            jQuery(document).ready(function($) {
+                $('.retry-sync').on('click', function() {
+                    const button = $(this);
+                    const orderId = button.data('order-id');
+                    
+                    button.prop('disabled', true);
+                    
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'retry_dsz_sync',
+                            order_id: orderId,
+                            nonce: '<?php echo wp_create_nonce('retry_dsz_sync'); ?>'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                location.reload();
+                            } else {
+                                alert('Sync failed: ' + response.data);
+                                button.prop('disabled', false);
+                            }
+                        }
+                    });
+                });
 
-            if (!$result['success']) {
-                throw new Exception("Import failed: Unknown error");
-            }
-
-            // Update Baserow status
-            $this->update_baserow_status($product_id, $result['product_id']);
-
-            // Store import results
-            set_transient('baserow_import_results', array(
-                'title' => $product_data['Title'],
-                'sku' => $product_data['SKU'],
-                'category' => $product_data['Category']
-            ), 30);
-
-            Baserow_Logger::info("Import completed successfully for product ID: " . $product_id);
-            wp_send_json_success(array(
-                'message' => 'Product imported successfully',
-                'redirect' => true
-            ));
-
-        } catch (Exception $e) {
-            Baserow_Logger::error("Import failed: " . $e->getMessage());
-            wp_send_json_error(array('message' => $e->getMessage()));
-        }
+                $('.sync-failed-orders').on('click', function() {
+                    const button = $(this);
+                    button.prop('disabled', true);
+                    
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'retry_all_failed_dsz_sync',
+                            nonce: '<?php echo wp_create_nonce('retry_all_failed_dsz_sync'); ?>'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                location.reload();
+                            } else {
+                                alert('Bulk sync failed: ' + response.data);
+                            }
+                        },
+                        complete: function() {
+                            button.prop('disabled', false);
+                        }
+                    });
+                });
+            });
+        </script>
+        <?php
     }
+
+    public function add_order_actions($actions) {
+        global $theorder;
+        
+        // Check if order has DSZ items
+        $has_dsz_items = false;
+        foreach ($theorder->get_items() as $item) {
+            $product = $item->get_product();
+            if (!$product) continue;
+            
+            $terms = wp_get_object_terms($product->get_id(), 'product_source');
+            foreach ($terms as $term) {
+                if ($term->slug === 'dsz') {
+                    $has_dsz_items = true;
+                    break 2;
+                }
+            }
+        }
+        
+        if ($has_dsz_items) {
+            $actions['sync_to_dsz'] = __('Sync to DSZ', 'baserow-importer');
+        }
+        
+        return $actions;
+    }
+
+    public function process_sync_to_dsz_action($order) {
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+        $order_handler = new Baserow_Order_Handler();
+        $order_handler->handle_new_order($order->get_id());
+    }
+
+    public function add_order_bulk_actions($actions) {
+        $actions['sync_to_dsz_bulk'] = __('Sync to DSZ', 'baserow-importer');
+        return $actions;
+    }
+
+    public function handle_order_bulk_actions($redirect_to, $action, $post_ids) {
+        if ($action !== 'sync_to_dsz_bulk') {
+            return $redirect_to;
+        }
+
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+        $order_handler = new Baserow_Order_Handler();
+        
+        $synced = 0;
+        foreach ($post_ids as $post_id) {
+            $order_handler->handle_new_order($post_id);
+            $synced++;
+        }
+
+        $redirect_to = add_query_arg('synced_to_dsz', $synced, $redirect_to);
+        return $redirect_to;
+    }
+
+    // ... rest of the existing class methods ...
 }

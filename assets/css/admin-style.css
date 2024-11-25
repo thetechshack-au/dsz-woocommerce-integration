@@ -1,206 +1,159 @@
-/* Product Table */
-.products-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    background: #fff;
-    margin: 20px 0;
-    border: 1px solid #e5e5e5;
-}
-
-.products-table th,
-.products-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.products-table th {
-    background: #f8f8f8;
-    font-weight: 600;
-    border-bottom: 1px solid #e1e1e1;
-}
-
-.products-table tr:hover {
-    background: #f9f9f9;
-}
-
-/* Checkbox column */
-.products-table td:first-child,
-.products-table th:first-child {
-    width: 30px;
-    text-align: center;
-}
-
-/* Image column */
-.product-image-cell {
-    width: 80px;
-}
-
-.product-image-cell img {
-    width: 60px;
-    height: 60px;
-    object-fit: contain;
-    border: 1px solid #eee;
-    vertical-align: middle;
-}
-
-/* Status badges */
-.status-badges {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-}
-
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.4;
-    color: white;
-}
-
-.badge-wordpress {
-    background: #666;
-}
-
-.badge-di {
-    background: #4CAF50;
-}
-
-.badge-fs {
-    background: #2196F3;
-}
-
-/* Price columns */
-.cost-price-col,
-.sell-price-col {
-    text-align: right;
-    width: 100px;
-}
-
-/* Actions column */
-.actions-col {
-    width: 80px;
-    text-align: right;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 4px;
-    justify-content: flex-end;
-}
-
-.action-button {
-    padding: 4px !important;
-    min-width: 30px !important;
-    height: 30px !important;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-}
-
-.action-button .dashicons {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-}
-
-/* Search Controls */
-.baserow-search-container {
+/* Order Display Styles */
+.supplier-group {
     margin: 20px 0;
     padding: 15px;
     background: #fff;
     border: 1px solid #ddd;
     border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
 }
 
-.baserow-search-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-/* Bulk Actions */
-.bulk-actions {
-    margin: 10px 0;
-    padding: 10px;
-    background: #f8f8f8;
-    border: 1px solid #e5e5e5;
-    border-radius: 4px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-}
-
-.loading-content {
-    background: white;
-    padding: 20px;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.supplier-group h3 {
+    margin: 0 0 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    color: #23282d;
+    font-size: 14px;
+    font-weight: 600;
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
-/* Pagination */
-.baserow-pagination {
-    margin: 20px 0;
-    text-align: right;
+.supplier-group .tracking-number {
+    font-size: 12px;
+    color: #666;
+    font-weight: normal;
 }
 
-.baserow-pagination .tablenav-pages {
-    float: none;
-    display: inline-block;
+.supplier-group table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
 }
 
-.baserow-pagination .pagination-links {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.supplier-group table th {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    color: #23282d;
+    font-weight: 600;
+    font-size: 13px;
 }
 
-.baserow-pagination .button {
-    padding: 0 10px;
-    line-height: 30px;
-    height: 30px;
-    min-width: 30px;
+.supplier-group table td {
+    padding: 8px;
+    border-bottom: 1px solid #f5f5f5;
+    vertical-align: middle;
+}
+
+.supplier-group table td.thumb {
+    width: 38px;
+}
+
+.supplier-group table td.thumb img {
+    width: 38px;
+    height: 38px;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+}
+
+.supplier-group table td.name {
+    width: 50%;
+}
+
+.supplier-group table td.name small {
+    color: #777;
+    display: block;
+    margin-top: 3px;
+}
+
+.supplier-group table td.quantity {
     text-align: center;
+    width: 80px;
 }
 
-.baserow-pagination .button[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
+.supplier-group table td.price {
+    text-align: right;
+    width: 100px;
 }
 
-.baserow-pagination .paging-input {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin: 0 10px;
+/* DSZ Order Status Page Styles */
+.dsz-order-status {
+    background: #fff;
+    padding: 12px;
+    margin-top: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
 }
 
-.baserow-pagination .current-page {
-    font-weight: bold;
+.dsz-order-status .status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
-.baserow-pagination .total-pages:before {
-    content: "of ";
-    margin-right: 3px;
+.dsz-order-status .status-pending {
+    background: #f8e3c0;
+    color: #94660c;
+}
+
+.dsz-order-status .status-success {
+    background: #c6e1c6;
+    color: #5b841b;
+}
+
+.dsz-order-status .status-failed {
+    background: #eba3a3;
+    color: #761919;
+}
+
+/* Order Actions */
+.order-sync-button {
+    margin-left: 10px !important;
+}
+
+.retry-sync {
+    min-width: 80px;
+}
+
+/* Meta Box Styles */
+#wc_supplier_grouping .inside {
+    margin: 0;
+    padding: 0;
+}
+
+#wc_supplier_grouping .supplier-group:first-child {
+    margin-top: 12px;
+}
+
+#wc_supplier_grouping .supplier-group:last-child {
+    margin-bottom: 12px;
+}
+
+/* Frontend Order Display */
+.woocommerce-order-details .supplier-group {
+    margin: 15px 0;
+}
+
+.woocommerce-order-details .supplier-group h3 {
+    font-size: 16px;
+}
+
+/* Responsive Styles */
+@media screen and (max-width: 782px) {
+    .supplier-group table td.thumb {
+        display: none;
+    }
+    
+    .supplier-group table td.name {
+        width: auto;
+    }
+    
+    .supplier-group table td.quantity,
+    .supplier-group table td.price {
+        width: auto;
+    }
 }

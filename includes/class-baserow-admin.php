@@ -27,9 +27,6 @@ class Baserow_Admin {
         add_filter('bulk_actions-edit-shop_order', array($this, 'add_order_bulk_actions'));
         add_filter('handle_bulk_actions-edit-shop_order', array($this, 'handle_order_bulk_actions'), 10, 3);
         
-        // Add admin pages
-        add_action('admin_menu', array($this, 'add_order_status_page'));
-
         // Add order sync AJAX handlers
         add_action('wp_ajax_retry_dsz_sync', array($this, 'handle_retry_sync'));
         add_action('wp_ajax_retry_all_failed_dsz_sync', array($this, 'handle_retry_all_failed_sync'));
@@ -64,6 +61,20 @@ class Baserow_Admin {
         );
     }
 
+    public function render_admin_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        include BASEROW_IMPORTER_PLUGIN_DIR . 'templates/admin-page.php';
+    }
+
+    public function render_order_status_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        include BASEROW_IMPORTER_PLUGIN_DIR . 'templates/order-status.php';
+    }
+
     public function enqueue_admin_scripts($hook) {
         // Only load on our plugin pages or WooCommerce order pages
         if (strpos($hook, $this->page_slug) === false && 
@@ -92,20 +103,6 @@ class Baserow_Admin {
             array(),
             BASEROW_IMPORTER_VERSION
         );
-    }
-
-    public function render_admin_page() {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        include BASEROW_IMPORTER_PLUGIN_DIR . 'templates/admin-page.php';
-    }
-
-    public function render_order_status_page() {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        include BASEROW_IMPORTER_PLUGIN_DIR . 'templates/order-status.php';
     }
 
     public function handle_import_ajax() {

@@ -10,6 +10,7 @@ class Baserow_Settings {
     public function __construct() {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
+        add_action('wp_ajax_test_dsz_connection', array($this, 'test_dsz_connection'));
     }
 
     public function enqueue_scripts($hook) {
@@ -25,14 +26,42 @@ class Baserow_Settings {
             true
         );
 
+        wp_enqueue_script(
+            'dsz-settings', 
+            BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/dsz-settings.js',
+            array('jquery'),
+            BASEROW_IMPORTER_VERSION,
+            true
+        );
+
         wp_localize_script('baserow-settings', 'baserowSettings', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('baserow_test_connection')
         ));
     }
 
+    public function test_dsz_connection() {
+        check_ajax_referer('baserow_test_connection', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions');
+            return;
+        }
+
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
+        $auth_handler = new Baserow_Auth_Handler();
+
+        $token = $auth_handler->get_token();
+        if (is_wp_error($token)) {
+            wp_send_json_error($token->get_error_message());
+            return;
+        }
+
+        wp_send_json_success('Successfully authenticated with Dropshipzone API');
+    }
+
     public function register_settings() {
-        // Register settings with sanitization
+        // Register Baserow settings
         register_setting($this->options_group, 'baserow_api_url', array(
             'sanitize_callback' => 'esc_url_raw'
         ));
@@ -43,7 +72,15 @@ class Baserow_Settings {
             'sanitize_callback' => 'absint'
         ));
 
-        // Add settings section
+        // Register DSZ API settings
+        register_setting($this->options_group, 'baserow_dsz_api_email', array(
+            'sanitize_callback' => 'sanitize_email'
+        ));
+        register_setting($this->options_group, 'baserow_dsz_api_password', array(
+            'sanitize_callback' => 'sanitize_text_field'
+        ));
+
+        // Add Baserow settings section
         add_settings_section(
             'baserow_api_settings',
             'Baserow API Settings',
@@ -51,7 +88,15 @@ class Baserow_Settings {
             $this->options_page
         );
 
-        // Add settings fields
+        // Add DSZ settings section
+        add_settings_section(
+            'dsz_api_settings',
+            'Dropshipzone API Settings',
+            array($this, 'render_dsz_section_info'),
+            $this->options_page
+        );
+
+        // Add Baserow settings fields
         add_settings_field(
             'baserow_api_url',
             'Baserow URL',
@@ -75,10 +120,31 @@ class Baserow_Settings {
             $this->options_page,
             'baserow_api_settings'
         );
+
+        // Add DSZ settings fields
+        add_settings_field(
+            'baserow_dsz_api_email',
+            'DSZ API Email',
+            array($this, 'render_dsz_api_email_field'),
+            $this->options_page,
+            'dsz_api_settings'
+        );
+
+        add_settings_field(
+            'baserow_dsz_api_password',
+            'DSZ API Password',
+            array($this, 'render_dsz_api_password_field'),
+            $this->options_page,
+            'dsz_api_settings'
+        );
     }
 
     public function render_section_info() {
         echo '<p>Enter your Baserow connection details below. After saving, use the test connection button to verify your settings.</p>';
+    }
+
+    public function render_dsz_section_info() {
+        echo '<p>Enter your Dropshipzone API credentials below. These are used for order synchronization.</p>';
     }
 
     public function render_settings_page() {
@@ -109,15 +175,24 @@ class Baserow_Settings {
             </form>
 
             <div class="baserow-connection-test" style="margin-top: 20px; padding: 20px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
-                <h2>Connection Test</h2>
-                <p>Click the button below to test your Baserow connection:</p>
-                
-                <button type="button" class="button button-secondary" id="test-baserow-connection">
-                    Test Connection
-                </button>
-                
-                <span id="connection-status" style="margin-left: 10px; display: inline-block; padding: 5px;">
-                </span>
+                <h2>Connection Tests</h2>
+                <div style="margin-bottom: 20px;">
+                    <p>Click the button below to test your Baserow connection:</p>
+                    <button type="button" class="button button-secondary" id="test-baserow-connection">
+                        Test Baserow Connection
+                    </button>
+                    <span id="connection-status" style="margin-left: 10px; display: inline-block; padding: 5px;">
+                    </span>
+                </div>
+
+                <div>
+                    <p>Click the button below to test your Dropshipzone API connection:</p>
+                    <button type="button" class="button button-secondary" id="test-dsz-connection">
+                        Test DSZ Connection
+                    </button>
+                    <span id="dsz-connection-status" style="margin-left: 10px; display: inline-block; padding: 5px;">
+                    </span>
+                </div>
             </div>
 
             <div class="baserow-current-settings" style="margin-top: 20px; padding: 20px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
@@ -134,6 +209,14 @@ class Baserow_Settings {
                     <tr>
                         <th>Table ID:</th>
                         <td><?php echo esc_html(get_option('baserow_table_id', 'Not set')); ?></td>
+                    </tr>
+                    <tr>
+                        <th>DSZ API Email:</th>
+                        <td><?php echo esc_html(get_option('baserow_dsz_api_email', 'Not set')); ?></td>
+                    </tr>
+                    <tr>
+                        <th>DSZ API Password:</th>
+                        <td><?php echo get_option('baserow_dsz_api_password') ? '********' : 'Not set'; ?></td>
                     </tr>
                 </table>
             </div>
@@ -178,6 +261,33 @@ class Baserow_Settings {
                class="regular-text"
         />
         <p class="description">Your Baserow table ID</p>
+        <?php
+    }
+
+    public function render_dsz_api_email_field() {
+        $value = get_option('baserow_dsz_api_email');
+        ?>
+        <input type="email"
+               id="baserow_dsz_api_email"
+               name="baserow_dsz_api_email"
+               value="<?php echo esc_attr($value); ?>"
+               class="regular-text"
+               placeholder="api@example.com"
+        />
+        <p class="description">Your Dropshipzone API email address</p>
+        <?php
+    }
+
+    public function render_dsz_api_password_field() {
+        $value = get_option('baserow_dsz_api_password');
+        ?>
+        <input type="password"
+               id="baserow_dsz_api_password"
+               name="baserow_dsz_api_password"
+               value="<?php echo esc_attr($value); ?>"
+               class="regular-text"
+        />
+        <p class="description">Your Dropshipzone API password</p>
         <?php
     }
 }

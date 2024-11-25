@@ -83,6 +83,10 @@ class Baserow_Product_Importer {
                 Baserow_Logger::debug("Set cost price from 'price' field: " . $product_data['price']);
             }
 
+            // Set product source taxonomy
+            wp_set_object_terms($woo_product_id, 'DSZ', 'product_source', false);
+            Baserow_Logger::debug("Set product source taxonomy term to 'DSZ'");
+
             Baserow_Logger::info("Product saved with ID: {$woo_product_id}");
 
             // Handle images

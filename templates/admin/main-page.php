@@ -7,14 +7,40 @@ if (!defined('ABSPATH')) {
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 
     <div class="card">
-        <h2><?php _e('Product Import', 'baserow-importer'); ?></h2>
-        <p><?php _e('Import or update products from Baserow to WooCommerce.', 'baserow-importer'); ?></p>
-        <button type="button" class="button button-primary" id="import-products">
-            <?php _e('Import Products', 'baserow-importer'); ?>
-        </button>
-        <span id="import-status" style="margin-left: 10px;"></span>
+        <h2><?php _e('Import Products from Baserow', 'baserow-importer'); ?></h2>
+        
+        <div id="baserow-products-list">
+            <div class="loading-products">
+                <?php _e('Loading products...', 'baserow-importer'); ?>
+            </div>
+            <table class="wp-list-table widefat fixed striped products-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th class="check-column">
+                            <input type="checkbox" id="select-all-products">
+                        </th>
+                        <th><?php _e('SKU', 'baserow-importer'); ?></th>
+                        <th><?php _e('Title', 'baserow-importer'); ?></th>
+                        <th><?php _e('Price', 'baserow-importer'); ?></th>
+                        <th><?php _e('Stock', 'baserow-importer'); ?></th>
+                        <th><?php _e('Status', 'baserow-importer'); ?></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="tablenav bottom">
+            <div class="alignleft actions">
+                <button type="button" class="button button-primary" id="import-selected-products" style="display: none;">
+                    <?php _e('Import Selected Products', 'baserow-importer'); ?>
+                </button>
+                <span id="import-status" style="margin-left: 10px;"></span>
+            </div>
+        </div>
     </div>
 
+    <?php if (current_user_can('manage_woocommerce')): ?>
     <div class="card">
         <h2><?php _e('DSZ Order Sync Status', 'baserow-importer'); ?></h2>
         <?php
@@ -44,4 +70,24 @@ if (!defined('ABSPATH')) {
             <p><?php _e('No order sync data available.', 'baserow-importer'); ?></p>
         <?php endif; ?>
     </div>
+    <?php endif; ?>
 </div>
+
+<script type="text/template" id="product-row-template">
+    <tr>
+        <td class="check-column">
+            <input type="checkbox" name="products[]" value="<%= id %>">
+        </td>
+        <td><%= sku %></td>
+        <td><%= title %></td>
+        <td><%= price %></td>
+        <td><%= stock %></td>
+        <td>
+            <% if (imported) { %>
+                <span class="status-imported"><?php _e('Imported', 'baserow-importer'); ?></span>
+            <% } else { %>
+                <span class="status-not-imported"><?php _e('Not Imported', 'baserow-importer'); ?></span>
+            <% } %>
+        </td>
+    </tr>
+</script>

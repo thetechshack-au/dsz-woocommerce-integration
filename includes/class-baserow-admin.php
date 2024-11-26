@@ -332,6 +332,8 @@ class Baserow_Admin {
             $product_data = $this->api_handler->get_product($product_id);
             if (is_wp_error($product_data)) {
                 throw new Exception("Failed to get product data: " . $product_data->get_error_message());
+            }
+
             $result = $this->product_importer->import_product($product_id);
             if (is_wp_error($result)) {
                 throw new Exception("Import failed: " . $result->get_error_message());

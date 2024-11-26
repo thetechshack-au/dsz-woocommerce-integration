@@ -244,8 +244,11 @@ class Baserow_Admin {
                 // Add Direct Import status
                 $product['DI'] = !empty($product['DI']) ? $product['DI'] : 'No';
 
-                // Add Free Shipping status (using au_free_shipping field)
+                // Add Free Shipping status
                 $product['au_free_shipping'] = !empty($product['au_free_shipping']) ? $product['au_free_shipping'] : 'No';
+
+                // Add New Arrival status
+                $product['new_arrival'] = !empty($product['new_arrival']) ? $product['new_arrival'] : 'No';
             }
         }
 
@@ -329,9 +332,6 @@ class Baserow_Admin {
             $product_data = $this->api_handler->get_product($product_id);
             if (is_wp_error($product_data)) {
                 throw new Exception("Failed to get product data: " . $product_data->get_error_message());
-            }
-
-            // Import product
             $result = $this->product_importer->import_product($product_id);
             if (is_wp_error($result)) {
                 throw new Exception("Import failed: " . $result->get_error_message());

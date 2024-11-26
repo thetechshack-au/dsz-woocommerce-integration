@@ -129,6 +129,9 @@ jQuery(document).ready(function($) {
             if (product['au_free_shipping'] === 'Yes') {
                 html += '<span class="status-badge badge-fs">FS</span>';
             }
+            if (product['new_arrival'] === 'Yes') {
+                html += '<span class="status-badge badge-new">NEW</span>';
+            }
             html += '</div></td>';
 
             // Actions
@@ -150,6 +153,8 @@ jQuery(document).ready(function($) {
 
         initBulkSelectionHandlers();
     }
+
+    // [Rest of the code remains unchanged...]
 
     function initBulkSelectionHandlers() {
         $('#select-all-products, #select-all-header').on('change', function() {

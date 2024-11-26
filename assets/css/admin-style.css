@@ -75,6 +75,10 @@
     background: #2196F3;
 }
 
+.badge-new {
+    background: #e44d26;
+}
+
 /* Price columns */
 .cost-price-col,
 .sell-price-col {

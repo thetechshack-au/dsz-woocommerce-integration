@@ -23,6 +23,7 @@ class Baserow_Woo_Importer {
     private $product_importer;
     private $order_handler;
     private $settings;
+    private $image_settings;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
@@ -194,6 +195,9 @@ class Baserow_Woo_Importer {
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
+
+            // Load admin settings
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/admin/class-baserow-image-settings.php';
         }
     }
 
@@ -203,6 +207,11 @@ class Baserow_Woo_Importer {
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler($this->api_handler);
         $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
+
+        // Initialize image settings if using new structure
+        if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
+            $this->image_settings = new Baserow_Image_Settings();
+        }
     }
 }
 

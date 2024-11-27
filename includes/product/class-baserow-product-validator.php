@@ -1,9 +1,9 @@
 <?php
 /**
  * Class: Baserow Product Validator
- * Description: Handles detailed validation of product data
- * Version: 1.4.0
- * Last Updated: 2024-01-09 14:00:00 UTC
+ * Handles detailed validation of product data.
+ * 
+ * @version 1.4.0
  */
 
 if (!defined('ABSPATH')) {
@@ -16,37 +16,54 @@ class Baserow_Product_Validator {
 
     /**
      * Validates the complete product data set
+     *
+     * @param array $product_data
+     * @return true|WP_Error
      */
-    public function validate_complete_product($product_data) {
-        $this->log_debug("Starting complete product validation");
+    public function validate_complete_product(array $product_data): bool|WP_Error {
+        $start_time = microtime(true);
 
-        $validations = array(
-            'base' => $this->validate_product_data($product_data),
-            'pricing' => $this->validate_pricing($product_data),
-            'shipping' => $this->validate_shipping_data($product_data),
-            'stock' => $this->validate_stock_data($product_data),
-            'dimensions' => $this->validate_dimensions($product_data),
-            'images' => $this->validate_images($product_data)
-        );
+        try {
+            $this->log_debug("Starting complete product validation");
 
-        foreach ($validations as $type => $result) {
-            if (is_wp_error($result)) {
-                $this->log_error("Validation failed", array(
-                    'type' => $type,
-                    'error' => $result->get_error_message()
-                ));
-                return $result;
+            $validations = [
+                'base' => $this->validate_product_data($product_data),
+                'pricing' => $this->validate_pricing($product_data),
+                'shipping' => $this->validate_shipping_data($product_data),
+                'stock' => $this->validate_stock_data($product_data),
+                'dimensions' => $this->validate_dimensions($product_data),
+                'images' => $this->validate_images($product_data)
+            ];
+
+            foreach ($validations as $type => $result) {
+                if (is_wp_error($result)) {
+                    $this->log_error("Validation failed", [
+                        'type' => $type,
+                        'error' => $result->get_error_message()
+                    ]);
+                    return $result;
+                }
             }
-        }
 
-        $this->log_debug("Product validation completed successfully");
-        return true;
+            $this->log_debug("Product validation completed successfully");
+            return true;
+
+        } catch (Exception $e) {
+            $this->log_exception($e, 'Error during product validation');
+            return new WP_Error(
+                'validation_error',
+                'Product validation failed: ' . $e->getMessage()
+            );
+        }
     }
 
     /**
      * Validates product pricing
+     *
+     * @param array $product_data
+     * @return true|WP_Error
      */
-    private function validate_pricing($product_data) {
+    private function validate_pricing(array $product_data): bool|WP_Error {
         if (!isset($product_data['price']) || !isset($product_data['RrpPrice'])) {
             return new WP_Error(
                 'invalid_pricing',
@@ -70,10 +87,10 @@ class Baserow_Product_Validator {
 
         // Optional: Validate price is not greater than RRP
         if (floatval($product_data['price']) > floatval($product_data['RrpPrice'])) {
-            $this->log_warning("Sale price is greater than RRP", array(
+            $this->log_warning("Sale price is greater than RRP", [
                 'sale_price' => $product_data['price'],
                 'rrp' => $product_data['RrpPrice']
-            ));
+            ]);
         }
 
         return true;
@@ -81,8 +98,11 @@ class Baserow_Product_Validator {
 
     /**
      * Validates stock data
+     *
+     * @param array $product_data
+     * @return true|WP_Error
      */
-    private function validate_stock_data($product_data) {
+    private function validate_stock_data(array $product_data): bool|WP_Error {
         if (!isset($product_data['Stock Qty'])) {
             return new WP_Error(
                 'missing_stock',
@@ -109,14 +129,17 @@ class Baserow_Product_Validator {
 
     /**
      * Validates product dimensions
+     *
+     * @param array $product_data
+     * @return true|WP_Error
      */
-    private function validate_dimensions($product_data) {
-        $dimension_fields = array(
+    private function validate_dimensions(array $product_data): bool|WP_Error {
+        $dimension_fields = [
             'Weight (kg)' => 'Weight',
             'Carton Length (cm)' => 'Length',
             'Carton Width (cm)' => 'Width',
             'Carton Height (cm)' => 'Height'
-        );
+        ];
 
         foreach ($dimension_fields as $field => $label) {
             if (isset($product_data[$field]) && !empty($product_data[$field])) {
@@ -141,8 +164,11 @@ class Baserow_Product_Validator {
 
     /**
      * Validates product images
+     *
+     * @param array $product_data
+     * @return true|WP_Error
      */
-    private function validate_images($product_data) {
+    private function validate_images(array $product_data): bool|WP_Error {
         for ($i = 1; $i <= 5; $i++) {
             $image_key = "Image {$i}";
             if (isset($product_data[$image_key]) && !empty($product_data[$image_key])) {
@@ -155,7 +181,7 @@ class Baserow_Product_Validator {
 
                 // Validate image file extension
                 $ext = strtolower(pathinfo($product_data[$image_key], PATHINFO_EXTENSION));
-                if (!in_array($ext, array('jpg', 'jpeg', 'png', 'gif', 'webp'))) {
+                if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
                     return new WP_Error(
                         'invalid_image_type',
                         sprintf('Invalid image type for %s. Allowed types: jpg, jpeg, png, gif, webp', $image_key)
@@ -169,38 +195,51 @@ class Baserow_Product_Validator {
 
     /**
      * Validates SKU uniqueness
+     *
+     * @param string $sku
+     * @param int|null $product_id
+     * @return true|WP_Error
      */
-    public function validate_sku_unique($sku, $product_id = null) {
+    public function validate_sku_unique(string $sku, ?int $product_id = null): bool|WP_Error {
         global $wpdb;
 
-        $this->log_debug("Validating SKU uniqueness", array(
-            'sku' => $sku,
-            'product_id' => $product_id
-        ));
-
-        $query = $wpdb->prepare(
-            "SELECT post_id FROM $wpdb->postmeta 
-            WHERE meta_key = '_sku' AND meta_value = %s",
-            $sku
-        );
-
-        if ($product_id) {
-            $query .= $wpdb->prepare(" AND post_id != %d", $product_id);
-        }
-
-        $existing_product = $wpdb->get_var($query);
-
-        if ($existing_product) {
-            $this->log_error("Duplicate SKU found", array(
+        try {
+            $this->log_debug("Validating SKU uniqueness", [
                 'sku' => $sku,
-                'existing_product_id' => $existing_product
-            ));
+                'product_id' => $product_id
+            ]);
+
+            $query = $wpdb->prepare(
+                "SELECT post_id FROM $wpdb->postmeta 
+                WHERE meta_key = '_sku' AND meta_value = %s",
+                $sku
+            );
+
+            if ($product_id) {
+                $query .= $wpdb->prepare(" AND post_id != %d", $product_id);
+            }
+
+            $existing_product = $wpdb->get_var($query);
+
+            if ($existing_product) {
+                $this->log_error("Duplicate SKU found", [
+                    'sku' => $sku,
+                    'existing_product_id' => $existing_product
+                ]);
+                return new WP_Error(
+                    'duplicate_sku',
+                    sprintf('SKU %s is already in use', $sku)
+                );
+            }
+
+            return true;
+
+        } catch (Exception $e) {
+            $this->log_exception($e, 'Error during SKU validation');
             return new WP_Error(
-                'duplicate_sku',
-                sprintf('SKU %s is already in use', $sku)
+                'sku_validation_error',
+                'SKU validation failed: ' . $e->getMessage()
             );
         }
-
-        return true;
     }
 }

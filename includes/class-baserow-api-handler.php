@@ -15,7 +15,92 @@ class Baserow_API_Handler {
         $this->table_id = get_option('baserow_table_id');
     }
 
-    // [Previous methods remain unchanged...]
+    public function get_categories() {
+        Baserow_Logger::info("Fetching categories - Starting");
+
+        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
+            Baserow_Logger::error("API configuration missing");
+            return new WP_Error('config_error', 'API configuration is incomplete');
+        }
+
+        $categories = array();
+        $page = 1;
+        $has_more = true;
+
+        while ($has_more) {
+            $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&page={$page}&size=100";
+            
+            Baserow_Logger::debug("Category API Request URL (page {$page}): {$url}");
+
+            $response = wp_remote_get($url, array(
+                'headers' => array(
+                    'Authorization' => 'Token ' . $this->api_token,
+                    'Content-Type' => 'application/json'
+                ),
+                'timeout' => 30
+            ));
+
+            if (is_wp_error($response)) {
+                $error_message = $response->get_error_message();
+                Baserow_Logger::error("API request failed: {$error_message}");
+                return new WP_Error('api_error', $error_message);
+            }
+
+            $status_code = wp_remote_retrieve_response_code($response);
+            $body = wp_remote_retrieve_body($response);
+
+            Baserow_Logger::debug("API Response Status: {$status_code}");
+            Baserow_Logger::debug("API Response Body: {$body}");
+
+            if ($status_code !== 200) {
+                $error_message = "API returned status code {$status_code}";
+                Baserow_Logger::error($error_message);
+                return new WP_Error('api_error', $error_message);
+            }
+
+            $data = json_decode($body, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $error_message = "Failed to parse JSON response: " . json_last_error_msg();
+                Baserow_Logger::error($error_message);
+                return new WP_Error('json_error', $error_message);
+            }
+
+            // Process categories from this page
+            if (!empty($data['results'])) {
+                foreach ($data['results'] as $product) {
+                    if (!empty($product['Category'])) {
+                        Baserow_Logger::debug("Processing category: " . $product['Category']);
+                        
+                        // Split the category path and add each level
+                        $parts = explode(' > ', $product['Category']);
+                        $current_path = '';
+                        foreach ($parts as $part) {
+                            $current_path = $current_path ? $current_path . ' > ' . $part : $part;
+                            if (!in_array($current_path, $categories)) {
+                                $categories[] = $current_path;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check if there are more pages
+            $total_pages = ceil($data['count'] / 100);
+            $has_more = $page < $total_pages;
+            $page++;
+
+            Baserow_Logger::debug("Processed page {$page} of {$total_pages}");
+        }
+
+        // Sort categories
+        sort($categories);
+
+        Baserow_Logger::info("Found " . count($categories) . " unique categories");
+        Baserow_Logger::debug("Categories: " . print_r($categories, true));
+
+        return $categories;
+    }
 
     public function search_products($search_term = '', $category = '', $page = 1) {
         Baserow_Logger::info("Searching products - Term: {$search_term}, Category: {$category}, Page: {$page}");
@@ -54,55 +139,22 @@ class Baserow_API_Handler {
             'order_by' => 'Title'
         );
 
-        // Initialize filters array
-        $filters = array();
-
         // Add search filters if provided
         if (!empty($search_term)) {
-            $filters[] = array(
-                'type' => 'OR',
-                'filters' => array(
-                    array('field' => 'Title', 'type' => 'contains', 'value' => $search_term),
-                    array('field' => 'SKU', 'type' => 'contains', 'value' => $search_term)
-                )
-            );
+            $params['filter_type'] = 'OR';
+            $params['filter__Title__contains'] = $search_term;
+            $params['filter__SKU__contains'] = $search_term;
         }
 
         // Add category filter if provided
         if (!empty($category)) {
-            // For exact category match
-            $filters[] = array(
-                'field' => 'Category',
-                'type' => 'equal',
-                'value' => $category
-            );
-        }
-
-        // Combine filters if both search and category are present
-        if (count($filters) > 1) {
-            $params['filter_type'] = 'AND';
-            foreach ($filters as $index => $filter) {
-                if (isset($filter['type']) && $filter['type'] === 'OR') {
-                    // Handle OR filter group
-                    $params['filter_type_' . $index] = 'OR';
-                    foreach ($filter['filters'] as $subIndex => $subFilter) {
-                        $params['filter__' . $subFilter['field'] . '__' . $subFilter['type'] . '_' . $index . '_' . $subIndex] = $subFilter['value'];
-                    }
-                } else {
-                    // Handle single filter
-                    $params['filter__' . $filter['field'] . '__' . $filter['type']] = $filter['value'];
-                }
-            }
-        } elseif (count($filters) === 1) {
-            // Handle single filter group or single filter
-            $filter = $filters[0];
-            if (isset($filter['type']) && $filter['type'] === 'OR') {
-                $params['filter_type'] = 'OR';
-                foreach ($filter['filters'] as $index => $subFilter) {
-                    $params['filter__' . $subFilter['field'] . '__' . $subFilter['type']] = $subFilter['value'];
-                }
+            if (!empty($search_term)) {
+                // If we have both search and category, use AND for the category
+                $params['filter_type'] = 'AND';
+                $params['filter__Category__equal'] = $category;
             } else {
-                $params['filter__' . $filter['field'] . '__' . $filter['type']] = $filter['value'];
+                // If we only have category, just use equals
+                $params['filter__Category__equal'] = $category;
             }
         }
 
@@ -179,5 +231,36 @@ class Baserow_API_Handler {
         return $data;
     }
 
-    // [Rest of the class remains unchanged...]
+    public function test_connection() {
+        Baserow_Logger::info("Testing API connection");
+
+        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
+            Baserow_Logger::error("API configuration missing");
+            return false;
+        }
+
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1";
+        Baserow_Logger::debug("Test connection URL: {$url}");
+        
+        $response = wp_remote_get($url, array(
+            'headers' => array(
+                'Authorization' => 'Token ' . $this->api_token,
+                'Content-Type' => 'application/json'
+            ),
+            'timeout' => 30
+        ));
+
+        if (is_wp_error($response)) {
+            Baserow_Logger::error("Connection test failed: " . $response->get_error_message());
+            return false;
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        Baserow_Logger::debug("Test connection status code: {$status_code}");
+
+        $success = $status_code === 200;
+        Baserow_Logger::info($success ? "Connection test successful" : "Connection test failed");
+        
+        return $success;
+    }
 }

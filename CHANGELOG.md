@@ -9,16 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced API initialization and validation
 - Improved error handling for API configuration
 - Better logging for API connection issues
+- PHP 7.2 compatibility improvements
 
 ### Changed
 - Improved API Handler initialization process
 - Enhanced credential validation
 - Better error messages for API configuration issues
+- Removed PHP 8 specific features for backwards compatibility
+- Improved exception handling throughout the plugin
 
 ### Fixed
 - API connection issues with proper initialization checks
 - URL format validation in API Handler
 - Error handling for missing API credentials
+- PHP compatibility issues
+- Critical error on plugin activation
 
 ## [1.5.0] - 2024
 ### Added

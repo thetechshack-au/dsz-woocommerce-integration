@@ -16,18 +16,48 @@ define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 class Baserow_Woo_Importer {
+    /** @var Baserow_Admin */
     private $admin;
+    
+    /** @var Baserow_API_Handler */
     private $api_handler;
+    
+    /** @var Baserow_Product_Importer */
     private $product_importer;
+    
+    /** @var Baserow_Order_Handler */
     private $order_handler;
+    
+    /** @var Baserow_Settings */
     private $settings;
+    
+    /** @var Baserow_Image_Settings */
     private $image_settings;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
+        add_action('admin_init', array($this, 'check_php_version'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
         add_action('admin_notices', array($this, 'display_admin_notices'));
+    }
+
+    public function check_php_version() {
+        if (version_compare(PHP_VERSION, '7.2', '<')) {
+            if (is_plugin_active(plugin_basename(__FILE__))) {
+                deactivate_plugins(plugin_basename(__FILE__));
+                add_action('admin_notices', function() {
+                    ?>
+                    <div class="error">
+                        <p><?php _e('Baserow Importer requires PHP version 7.2 or higher. Plugin has been deactivated.', 'baserow-importer'); ?></p>
+                    </div>
+                    <?php
+                });
+                if (isset($_GET['activate'])) {
+                    unset($_GET['activate']);
+                }
+            }
+        }
     }
 
     public function activate() {
@@ -105,7 +135,7 @@ class Baserow_Woo_Importer {
             return;
         }
 
-        if ($this->api_handler && $this->api_handler->is_initialized()) {
+        if ($this->api_handler && method_exists($this->api_handler, 'is_initialized') && $this->api_handler->is_initialized()) {
             $this->api_handler->update_product($baserow_product->baserow_id, array(
                 'imported_to_woo' => false,
                 'woo_product_id' => null
@@ -120,32 +150,30 @@ class Baserow_Woo_Importer {
     }
 
     public function init() {
-        if (!class_exists('WooCommerce')) {
-            add_action('admin_notices', function() {
+        try {
+            if (!class_exists('WooCommerce')) {
+                throw new Exception('Baserow Importer requires WooCommerce to be installed and activated.');
+            }
+
+            $this->check_requirements();
+            $this->load_dependencies();
+            $this->initialize_components();
+
+        } catch (Exception $e) {
+            add_action('admin_notices', function() use ($e) {
                 ?>
                 <div class="error">
-                    <p><?php _e('Baserow Importer requires WooCommerce to be installed and activated.', 'baserow-importer'); ?></p>
+                    <p><?php echo esc_html($e->getMessage()); ?></p>
                 </div>
                 <?php
             });
-            return;
         }
-
-        $this->check_requirements();
-        $this->load_dependencies();
-        $this->initialize_components();
     }
 
     private function check_requirements() {
         $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
         if (!is_writable($log_file)) {
-            add_action('admin_notices', function() {
-                ?>
-                <div class="error">
-                    <p><?php _e('Baserow Importer log file is not writable. Please check permissions.', 'baserow-importer'); ?></p>
-                </div>
-                <?php
-            });
+            throw new Exception('Baserow Importer log file is not writable. Please check permissions.');
         }
     }
 
@@ -185,28 +213,33 @@ class Baserow_Woo_Importer {
     }
 
     private function initialize_components() {
-        // Initialize settings first
-        $this->settings = new Baserow_Settings();
-        
-        // Initialize API handler with validation
-        $this->api_handler = new Baserow_API_Handler();
-        if (!$this->api_handler->init()) {
-            add_action('admin_notices', function() {
+        try {
+            // Initialize settings first
+            $this->settings = new Baserow_Settings();
+            
+            // Initialize API handler with validation
+            $this->api_handler = new Baserow_API_Handler();
+            if (!$this->api_handler->init()) {
+                throw new Exception('API configuration is incomplete or invalid. Please check your settings.');
+            }
+
+            // Initialize other components
+            $this->product_importer = new Baserow_Product_Importer($this->api_handler);
+            $this->order_handler = new Baserow_Order_Handler($this->api_handler);
+            $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
+
+            if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
+                $this->image_settings = new Baserow_Image_Settings();
+            }
+
+        } catch (Exception $e) {
+            add_action('admin_notices', function() use ($e) {
                 ?>
                 <div class="error">
-                    <p><?php _e('Baserow Importer: API configuration is incomplete or invalid. Please check your settings.', 'baserow-importer'); ?></p>
+                    <p><?php echo esc_html($e->getMessage()); ?></p>
                 </div>
                 <?php
             });
-        }
-
-        // Initialize other components
-        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
-        $this->order_handler = new Baserow_Order_Handler($this->api_handler);
-        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
-
-        if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
-            $this->image_settings = new Baserow_Image_Settings();
         }
     }
 

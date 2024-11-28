@@ -7,11 +7,20 @@ class Baserow_API_Handler {
     use Baserow_API_Request_Trait;
     use Baserow_Logger_Trait;
 
-    private string $api_url;
-    private string $api_token;
-    private string $table_id;
-    private int $per_page = 20;
-    private bool $is_initialized = false;
+    /** @var string */
+    private $api_url;
+    
+    /** @var string */
+    private $api_token;
+    
+    /** @var string */
+    private $table_id;
+    
+    /** @var int */
+    private $per_page = 20;
+    
+    /** @var bool */
+    private $is_initialized = false;
 
     public function __construct() {
         $this->init();
@@ -22,26 +31,26 @@ class Baserow_API_Handler {
      *
      * @return bool True if initialization successful, false otherwise
      */
-    public function init(): bool {
+    public function init() {
         $this->api_url = get_option('baserow_api_url', '');
         $this->api_token = get_option('baserow_api_token', '');
         $this->table_id = get_option('baserow_table_id', '');
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            $this->log_error("API configuration missing", [
+            $this->log_error("API configuration missing", array(
                 'url_set' => !empty($this->api_url),
                 'token_set' => !empty($this->api_token),
                 'table_id_set' => !empty($this->table_id)
-            ]);
+            ));
             $this->is_initialized = false;
             return false;
         }
 
         // Validate API URL format
         if (!filter_var($this->api_url, FILTER_VALIDATE_URL)) {
-            $this->log_error("Invalid API URL format", [
+            $this->log_error("Invalid API URL format", array(
                 'url' => $this->api_url
-            ]);
+            ));
             $this->is_initialized = false;
             return false;
         }
@@ -58,7 +67,16 @@ class Baserow_API_Handler {
      *
      * @return bool
      */
-    private function check_initialization(): bool {
+    public function is_initialized() {
+        return $this->is_initialized;
+    }
+
+    /**
+     * Check if the API handler is properly initialized
+     *
+     * @return bool
+     */
+    private function check_initialization() {
         if (!$this->is_initialized) {
             $this->log_error("API Handler not properly initialized");
             return false;
@@ -72,35 +90,35 @@ class Baserow_API_Handler {
      * @param array $args Search parameters
      * @return array|WP_Error Array of products or WP_Error on failure
      */
-    public function search_products(array $args = []): array|WP_Error {
+    public function search_products($args = array()) {
         if (!$this->check_initialization()) {
             return new WP_Error('not_initialized', 'API Handler not properly initialized. Please check your API settings.');
         }
 
-        $this->log_info("Starting product search", ['args' => $args]);
+        $this->log_info("Starting product search", array('args' => $args));
 
         // Validate and sanitize input parameters
-        $defaults = [
+        $defaults = array(
             'search' => '',
             'sku' => '',
             'category' => '',
             'page' => 1,
             'sort_by' => 'id',
             'sort_order' => 'asc'
-        ];
+        );
         
         $args = wp_parse_args($args, $defaults);
         $args = $this->sanitize_search_args($args);
 
         // Build search query parameters
-        $query_params = [
+        $query_params = array(
             'user_field_names' => 'true',
             'size' => $this->per_page,
             'page' => max(1, intval($args['page']))
-        ];
+        );
 
         // Add search filters
-        $filters = [];
+        $filters = array();
         if (!empty($args['search'])) {
             $filters[] = $this->build_search_filter('Name', 'contains', $args['search']);
             $filters[] = $this->build_search_filter('Description', 'contains', $args['search']);
@@ -133,31 +151,31 @@ class Baserow_API_Handler {
         );
 
         // Make API request
-        $response = $this->make_api_request($url, 'GET', null, [
+        $response = $this->make_api_request($url, 'GET', null, array(
             'Authorization' => "Token {$this->api_token}"
-        ]);
+        ));
 
         if (is_wp_error($response)) {
-            $this->log_error("Search request failed", [
+            $this->log_error("Search request failed", array(
                 'error' => $response->get_error_message()
-            ]);
+            ));
             return $response;
         }
 
         // Format response
-        $result = [
-            'products' => $response['results'] ?? [],
-            'total' => $response['count'] ?? 0,
+        $result = array(
+            'products' => isset($response['results']) ? $response['results'] : array(),
+            'total' => isset($response['count']) ? $response['count'] : 0,
             'page' => $args['page'],
-            'pages' => ceil(($response['count'] ?? 0) / $this->per_page),
+            'pages' => ceil((isset($response['count']) ? $response['count'] : 0) / $this->per_page),
             'per_page' => $this->per_page
-        ];
+        );
 
-        $this->log_info("Search completed", [
+        $this->log_info("Search completed", array(
             'total_results' => $result['total'],
             'page' => $result['page'],
             'total_pages' => $result['pages']
-        ]);
+        ));
 
         return $result;
     }
@@ -167,7 +185,7 @@ class Baserow_API_Handler {
      *
      * @return array|WP_Error Array of categories or WP_Error on failure
      */
-    public function get_categories(): array|WP_Error {
+    public function get_categories() {
         if (!$this->check_initialization()) {
             return new WP_Error('not_initialized', 'API Handler not properly initialized. Please check your API settings.');
         }
@@ -178,19 +196,19 @@ class Baserow_API_Handler {
         
         $this->log_debug("Category API Request URL: " . $url);
 
-        $response = $this->make_api_request($url, 'GET', null, [
+        $response = $this->make_api_request($url, 'GET', null, array(
             'Authorization' => "Token {$this->api_token}"
-        ]);
+        ));
 
         if (is_wp_error($response)) {
-            $this->log_error("Category request failed", [
+            $this->log_error("Category request failed", array(
                 'error' => $response->get_error_message()
-            ]);
+            ));
             return $response;
         }
 
         // Extract categories
-        $categories = [];
+        $categories = array();
         if (!empty($response['results'])) {
             foreach ($response['results'] as $product) {
                 if (!empty($product['Category'])) {
@@ -213,9 +231,9 @@ class Baserow_API_Handler {
 
         sort($categories);
 
-        $this->log_info("Categories fetched successfully", [
+        $this->log_info("Categories fetched successfully", array(
             'count' => count($categories)
-        ]);
+        ));
 
         return $categories;
     }
@@ -226,19 +244,19 @@ class Baserow_API_Handler {
      * @param array $args Search arguments to sanitize
      * @return array Sanitized arguments
      */
-    private function sanitize_search_args(array $args): array {
-        return [
+    private function sanitize_search_args($args) {
+        return array(
             'search' => sanitize_text_field($args['search']),
             'sku' => sanitize_text_field($args['sku']),
             'category' => sanitize_text_field($args['category']),
             'page' => max(1, intval($args['page'])),
-            'sort_by' => in_array($args['sort_by'], ['id', 'Name', 'SKU', 'Category']) 
+            'sort_by' => in_array($args['sort_by'], array('id', 'Name', 'SKU', 'Category')) 
                 ? $args['sort_by'] 
                 : 'id',
-            'sort_order' => in_array(strtolower($args['sort_order']), ['asc', 'desc']) 
+            'sort_order' => in_array(strtolower($args['sort_order']), array('asc', 'desc')) 
                 ? strtolower($args['sort_order']) 
                 : 'asc'
-        ];
+        );
     }
 
     /**
@@ -249,11 +267,11 @@ class Baserow_API_Handler {
      * @param string $value Filter value
      * @return array Filter array
      */
-    private function build_search_filter(string $field, string $type, string $value): array {
-        return [
+    private function build_search_filter($field, $type, $value) {
+        return array(
             'field' => $field,
             'type' => $type,
             'value' => $value
-        ];
+        );
     }
 }

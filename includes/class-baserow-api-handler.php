@@ -23,8 +23,8 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request all rows with Category field, using a large size parameter
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&size=9999";
+        // Request only the Category field to minimize data transfer
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -61,17 +61,14 @@ class Baserow_API_Handler {
         $categories = array();
         if (!empty($data['results'])) {
             foreach ($data['results'] as $product) {
-                if (!empty($product['Category'])) {
-                    $category = trim($product['Category']);
-                    if (!empty($category) && !in_array($category, $categories)) {
-                        $categories[] = $category;
-                    }
+                if (!empty($product['Category']) && !in_array($product['Category'], $categories)) {
+                    $categories[] = $product['Category'];
                 }
             }
             sort($categories); // Sort alphabetically
         }
 
-        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
+        Baserow_Logger::info("Successfully retrieved categories");
         return $categories;
     }
 

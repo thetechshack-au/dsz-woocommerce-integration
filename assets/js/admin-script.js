@@ -47,20 +47,27 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
-                if (response.success) {
+                if (response.success && response.data.categories) {
                     var categories = response.data.categories;
                     var currentCategory = categoryFilter.val();
                     categoryFilter.find('option:not(:first)').remove();
+                    
                     categories.forEach(function(category) {
-                        categoryFilter.append($('<option>', {
-                            value: category,
-                            text: category
-                        }));
+                        if (category && category.value) {
+                            categoryFilter.append($('<option>', {
+                                value: category.value,
+                                text: category.label
+                            }));
+                        }
                     });
+                    
                     if (currentCategory) {
                         categoryFilter.val(currentCategory);
                     }
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load categories:', error);
             }
         });
     }
@@ -113,10 +120,10 @@ jQuery(document).ready(function($) {
             html += '<td>' + product.Category + '</td>';
             
             // Cost Price
-            html += '<td class="cost-price-col">$' + (product['Cost Price'] || '0.00') + '</td>';
+            html += '<td class="cost-price-col">$' + (product.cost_price || '0.00') + '</td>';
             
             // Sell Price
-            html += '<td class="sell-price-col">$' + (product.RrpPrice || '0.00') + '</td>';
+            html += '<td class="sell-price-col">$' + (product.price || '0.00') + '</td>';
             
             // Status Badges
             html += '<td><div class="status-badges">';
@@ -126,10 +133,10 @@ jQuery(document).ready(function($) {
             if (product.DI === 'Yes') {
                 html += '<span class="status-badge badge-di">DI</span>';
             }
-            if (product['au_free_shipping'] === 'Yes') {
+            if (product.au_free_shipping === 'Yes') {
                 html += '<span class="status-badge badge-fs">FS</span>';
             }
-            if (product['new_arrival'] === 'Yes') {
+            if (product.new_arrival === 'Yes') {
                 html += '<span class="status-badge badge-new">NEW</span>';
             }
             html += '</div></td>';
@@ -153,8 +160,6 @@ jQuery(document).ready(function($) {
 
         initBulkSelectionHandlers();
     }
-
-    // [Rest of the code remains unchanged...]
 
     function initBulkSelectionHandlers() {
         $('#select-all-products, #select-all-header').on('change', function() {

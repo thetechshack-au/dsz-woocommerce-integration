@@ -1,7 +1,7 @@
 <?php
 /**
  * Class: Baserow Product Image Handler
- * Handles all product image operations with configurable settings.
+ * Handles all product image operations.
  * 
  * @version 1.4.0
  */
@@ -21,99 +21,8 @@ class Baserow_Product_Image_Handler {
         'webp' => 'image/webp'
     ];
 
-    /** @var array */
-    private $settings;
-
-    /** @var array */
-    private $temp_files = [];
-
-    /** @var int */
-    private $max_retries = 3;
-
-    /**
-     * Constructor
-     *
-     * @param array $settings Optional override settings
-     */
-    public function __construct(array $settings = []) {
-        $this->init_settings($settings);
-    }
-
-    /**
-     * Initialize settings with defaults, stored options, and overrides
-     *
-     * @param array $settings
-     * @return void
-     */
-    private function init_settings(array $settings = []): void {
-        // Default settings
-        $defaults = [
-            'max_file_size' => 10485760, // 10MB
-            'image' => [
-                'max_width' => 1200,
-                'max_height' => 1200,
-                'maintain_aspect_ratio' => true,
-                'webp_quality' => 85,
-                'jpeg_quality' => 90,
-                'png_compression' => 9
-            ],
-            'processing' => [
-                'prefer_webp' => true,
-                'keep_original' => false,
-                'max_retries' => 3,
-                'timeout' => 30
-            ],
-            'storage' => [
-                'organize_by_date' => true,
-                'unique_filename' => true
-            ]
-        ];
-
-        // Get stored options
-        $stored_settings = get_option('baserow_image_settings', []);
-
-        // Merge settings in order of precedence: defaults < stored < overrides
-        $merged_settings = wp_parse_args(
-            $settings,
-            wp_parse_args(
-                $stored_settings,
-                $defaults
-            )
-        );
-
-        // Allow filtering of settings
-        $this->settings = apply_filters(
-            'baserow_image_handler_settings',
-            $merged_settings
-        );
-
-        // Update class properties that depend on settings
-        $this->max_retries = $this->settings['processing']['max_retries'];
-    }
-
-    /**
-     * Get current settings
-     *
-     * @return array
-     */
-    public function get_settings(): array {
-        return $this->settings;
-    }
-
-    /**
-     * Update settings
-     *
-     * @param array $new_settings
-     * @param bool $persist Save to database
-     * @return void
-     */
-    public function update_settings(array $new_settings, bool $persist = false): void {
-        $this->init_settings($new_settings);
-
-        if ($persist) {
-            update_option('baserow_image_settings', $this->settings);
-        }
-    }
+    /** @var int Max image size in bytes (10MB) */
+    private $max_image_size = 10485760;
 
     /**
      * Process all images for a product
@@ -125,8 +34,7 @@ class Baserow_Product_Image_Handler {
     public function process_product_images(array $image_urls, int $product_id): array {
         $this->log_debug("Processing product images", [
             'product_id' => $product_id,
-            'image_count' => count($image_urls),
-            'settings' => $this->settings
+            'image_count' => count($image_urls)
         ]);
 
         $image_ids = [];
@@ -147,12 +55,11 @@ class Baserow_Product_Image_Handler {
             }
         }
 
-        $this->cleanup_temp_files();
         return $image_ids;
     }
 
     /**
-     * Process a single image with safety checks
+     * Process a single image
      *
      * @param string $image_url
      * @param int $product_id
@@ -168,54 +75,28 @@ class Baserow_Product_Image_Handler {
             // Check if image already exists
             $existing_image = $this->get_existing_image($image_url);
             if ($existing_image) {
+                $this->log_debug("Image already exists in media library", [
+                    'attachment_id' => $existing_image
+                ]);
                 return $existing_image;
             }
 
-            // Download and verify the image
-            $download_result = $this->download_and_verify_image($image_url);
-            if (is_wp_error($download_result)) {
-                return $download_result;
-            }
-            [$temp_file, $response] = $download_result;
-            $this->temp_files[] = $temp_file;
-
-            // Keep original if configured
-            if ($this->settings['processing']['keep_original']) {
-                $original_file = $temp_file . '_original';
-                copy($temp_file, $original_file);
-                $this->temp_files[] = $original_file;
+            // Download the image
+            $temp_file = $this->download_image($image_url);
+            if (is_wp_error($temp_file)) {
+                return $temp_file;
             }
 
             // Validate the downloaded file
-            $validation_result = $this->validate_image_file($temp_file, $response);
+            $validation_result = $this->validate_image_file($temp_file);
             if (is_wp_error($validation_result)) {
+                @unlink($temp_file);
                 return $validation_result;
             }
 
-            // Process the image with configured settings
-            $processed_file = $this->optimize_image_safely($temp_file);
-            if (is_wp_error($processed_file)) {
-                if ($this->settings['processing']['keep_original']) {
-                    $this->log_warning("Using original file after optimization failure");
-                    $processed_file = $original_file;
-                } else {
-                    $this->log_warning("Using unoptimized file after optimization failure");
-                    $processed_file = $temp_file;
-                }
-            } else {
-                $this->temp_files[] = $processed_file;
-            }
-
-            // Verify processed file integrity
-            if (!$this->verify_file_integrity($processed_file)) {
-                return new WP_Error(
-                    'file_integrity_error',
-                    'Processed file integrity check failed'
-                );
-            }
-
-            // Upload to media library with verification
-            $attachment_id = $this->upload_to_media_library_safely($processed_file, $image_url, $product_id);
+            // Upload to media library
+            $attachment_id = $this->upload_to_media_library($temp_file, $image_url, $product_id);
+            @unlink($temp_file);
 
             return $attachment_id;
 
@@ -225,148 +106,203 @@ class Baserow_Product_Image_Handler {
                 'image_processing_error',
                 'Failed to process image: ' . $e->getMessage()
             );
-        } finally {
-            $this->cleanup_temp_files();
         }
     }
 
     /**
-     * Optimize image safely with configured settings
+     * Check if image already exists in media library
+     *
+     * @param string $image_url
+     * @return int|false
+     */
+    private function get_existing_image(string $image_url) {
+        global $wpdb;
+
+        $existing_attachment = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM $wpdb->postmeta 
+            WHERE meta_key = '_baserow_image_url' 
+            AND meta_value = %s",
+            $image_url
+        ));
+
+        return $existing_attachment ? intval($existing_attachment) : false;
+    }
+
+    /**
+     * Download image from URL
+     *
+     * @param string $url
+     * @return string|WP_Error Path to temporary file
+     */
+    private function download_image(string $url) {
+        $this->log_debug("Downloading image", ['url' => $url]);
+
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+
+        $temp_file = download_url($url);
+        
+        if (is_wp_error($temp_file)) {
+            $this->log_error("Failed to download image", [
+                'url' => $url,
+                'error' => $temp_file->get_error_message()
+            ]);
+            return $temp_file;
+        }
+
+        return $temp_file;
+    }
+
+    /**
+     * Validate downloaded image file
      *
      * @param string $file_path
-     * @return string|WP_Error
+     * @return true|WP_Error
      */
-    private function optimize_image_safely(string $file_path) {
-        try {
-            $image = wp_get_image_editor($file_path);
-            if (is_wp_error($image)) {
-                throw new Exception($image->get_error_message());
-            }
-
-            // Resize image
-            $resize_result = $image->resize(
-                $this->settings['image']['max_width'],
-                $this->settings['image']['max_height'],
-                $this->settings['image']['maintain_aspect_ratio']
+    private function validate_image_file(string $file_path): bool|WP_Error {
+        // Check file size
+        $file_size = filesize($file_path);
+        if ($file_size > $this->max_image_size) {
+            return new WP_Error(
+                'image_too_large',
+                sprintf(
+                    'Image file size (%s) exceeds maximum allowed size (%s)',
+                    size_format($file_size),
+                    size_format($this->max_image_size)
+                )
             );
-            if (is_wp_error($resize_result)) {
-                throw new Exception($resize_result->get_error_message());
+        }
+
+        // Check mime type
+        $file_type = wp_check_filetype($file_path, $this->allowed_mime_types);
+        if (!$file_type['type']) {
+            return new WP_Error(
+                'invalid_image_type',
+                'Invalid image type. Allowed types: ' . implode(', ', array_keys($this->allowed_mime_types))
+            );
+        }
+
+        // Verify it's a valid image
+        if (!getimagesize($file_path)) {
+            return new WP_Error(
+                'invalid_image',
+                'File is not a valid image'
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Upload image to media library
+     *
+     * @param string $file_path
+     * @param string $source_url
+     * @param int $product_id
+     * @return int|WP_Error
+     */
+    private function upload_to_media_library(
+        string $file_path,
+        string $source_url,
+        int $product_id
+    ) {
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+        $file_array = [
+            'name' => basename($source_url),
+            'tmp_name' => $file_path
+        ];
+
+        // Upload the file
+        $attachment_id = media_handle_sideload($file_array, $product_id);
+
+        if (is_wp_error($attachment_id)) {
+            $this->log_error("Failed to upload image to media library", [
+                'error' => $attachment_id->get_error_message()
+            ]);
+            return $attachment_id;
+        }
+
+        // Store the source URL as meta data
+        update_post_meta($attachment_id, '_baserow_image_url', $source_url);
+
+        $this->log_debug("Image uploaded successfully", [
+            'attachment_id' => $attachment_id
+        ]);
+
+        return $attachment_id;
+    }
+
+    /**
+     * Set product images
+     *
+     * @param WC_Product $product
+     * @param array $image_ids
+     * @return void
+     */
+    public function set_product_images(WC_Product $product, array $image_ids): void {
+        if (empty($image_ids)) {
+            return;
+        }
+
+        try {
+            // Set featured image
+            $product->set_image_id($image_ids[0]);
+
+            // Set gallery images
+            if (count($image_ids) > 1) {
+                $gallery_ids = array_slice($image_ids, 1);
+                $product->set_gallery_image_ids($gallery_ids);
             }
 
-            // Try WebP if preferred
-            if ($this->settings['processing']['prefer_webp']) {
-                $webp_result = $this->convert_to_webp_safely($image);
-                if (!is_wp_error($webp_result)) {
-                    return $webp_result;
+            $this->log_debug("Product images set", [
+                'product_id' => $product->get_id(),
+                'featured_image' => $image_ids[0],
+                'gallery_images' => array_slice($image_ids, 1)
+            ]);
+
+        } catch (Exception $e) {
+            $this->log_exception($e, "Error setting product images");
+        }
+    }
+
+    /**
+     * Clean up orphaned images
+     *
+     * @return int Number of images cleaned up
+     */
+    public function cleanup_orphaned_images(): int {
+        global $wpdb;
+
+        $this->log_debug("Starting orphaned images cleanup");
+
+        try {
+            $orphaned_images = $wpdb->get_results(
+                "SELECT p.ID, p.post_title 
+                FROM {$wpdb->posts} p 
+                LEFT JOIN {$wpdb->postmeta} pm ON pm.meta_value = p.ID 
+                AND pm.meta_key IN ('_thumbnail_id', '_product_image_gallery') 
+                WHERE p.post_type = 'attachment' 
+                AND p.post_mime_type LIKE 'image/%' 
+                AND pm.post_id IS NULL"
+            );
+
+            $cleaned_count = 0;
+            foreach ($orphaned_images as $image) {
+                if (wp_delete_attachment($image->ID, true)) {
+                    $cleaned_count++;
+                    $this->log_debug("Deleted orphaned image", [
+                        'image_id' => $image->ID,
+                        'title' => $image->post_title
+                    ]);
                 }
             }
 
-            // Fallback to JPEG
-            $this->log_warning("Using JPEG format");
-            return $this->optimize_as_jpeg_safely($image);
+            return $cleaned_count;
 
         } catch (Exception $e) {
-            return new WP_Error(
-                'optimization_failed',
-                'Failed to optimize image: ' . $e->getMessage()
-            );
+            $this->log_exception($e, "Error during image cleanup");
+            return 0;
         }
-    }
-
-    /**
-     * Convert to WebP safely
-     *
-     * @param WP_Image_Editor $image
-     * @return string|WP_Error
-     */
-    private function convert_to_webp_safely(WP_Image_Editor $image) {
-        $temp_file = wp_tempnam('image_webp_');
-        $this->temp_files[] = $temp_file;
-
-        try {
-            $image->set_quality($this->settings['image']['webp_quality']);
-            $result = $image->save($temp_file, 'image/webp');
-
-            if (is_wp_error($result)) {
-                throw new Exception($result->get_error_message());
-            }
-
-            // Verify conversion result
-            if (!$this->verify_file_integrity($result['path'])) {
-                throw new Exception('WebP conversion verification failed');
-            }
-
-            return $result['path'];
-
-        } catch (Exception $e) {
-            return new WP_Error(
-                'webp_conversion_failed',
-                'WebP conversion failed: ' . $e->getMessage()
-            );
-        }
-    }
-
-    /**
-     * Optimize as JPEG safely
-     *
-     * @param WP_Image_Editor $image
-     * @return string|WP_Error
-     */
-    private function optimize_as_jpeg_safely(WP_Image_Editor $image) {
-        $temp_file = wp_tempnam('image_jpeg_');
-        $this->temp_files[] = $temp_file;
-
-        try {
-            $image->set_quality($this->settings['image']['jpeg_quality']);
-            $result = $image->save($temp_file, 'image/jpeg');
-
-            if (is_wp_error($result)) {
-                throw new Exception($result->get_error_message());
-            }
-
-            // Verify optimization result
-            if (!$this->verify_file_integrity($result['path'])) {
-                throw new Exception('JPEG optimization verification failed');
-            }
-
-            return $result['path'];
-
-        } catch (Exception $e) {
-            return new WP_Error(
-                'jpeg_optimization_failed',
-                'JPEG optimization failed: ' . $e->getMessage()
-            );
-        }
-    }
-
-    // ... [rest of the existing methods remain unchanged] ...
-
-    /**
-     * Get default settings
-     *
-     * @return array
-     */
-    public static function get_default_settings(): array {
-        return [
-            'max_file_size' => 10485760, // 10MB
-            'image' => [
-                'max_width' => 1200,
-                'max_height' => 1200,
-                'maintain_aspect_ratio' => true,
-                'webp_quality' => 85,
-                'jpeg_quality' => 90,
-                'png_compression' => 9
-            ],
-            'processing' => [
-                'prefer_webp' => true,
-                'keep_original' => false,
-                'max_retries' => 3,
-                'timeout' => 30
-            ],
-            'storage' => [
-                'organize_by_date' => true,
-                'unique_filename' => true
-            ]
-        ];
     }
 }

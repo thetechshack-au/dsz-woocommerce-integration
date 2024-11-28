@@ -2,7 +2,8 @@
 /**
  * Plugin Name: DSZ WooCommerce Product Importer
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.5.1
+ * Version: 1.4.0
+ * Last Updated: 2024-01-09 14:00:00 UTC
  * Author: Andrew Waite
  * Requires PHP: 7.2
  */
@@ -11,52 +12,36 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.5.1');
+define('BASEROW_IMPORTER_VERSION', '1.4.0');
+define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-09 14:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 class Baserow_Woo_Importer {
-    /** @var Baserow_Admin */
     private $admin;
-    
-    /** @var Baserow_API_Handler */
     private $api_handler;
-    
-    /** @var Baserow_Product_Importer */
     private $product_importer;
-    
-    /** @var Baserow_Order_Handler */
     private $order_handler;
-    
-    /** @var Baserow_Settings */
     private $settings;
-    
-    /** @var Baserow_Image_Settings */
-    private $image_settings;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
-        add_action('admin_init', array($this, 'check_php_version'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
-        add_action('admin_notices', array($this, 'display_admin_notices'));
+        add_action('admin_notices', array($this, 'show_version_info'));
     }
 
-    public function check_php_version() {
-        if (version_compare(PHP_VERSION, '7.2', '<')) {
-            if (is_plugin_active(plugin_basename(__FILE__))) {
-                deactivate_plugins(plugin_basename(__FILE__));
-                add_action('admin_notices', function() {
-                    ?>
-                    <div class="error">
-                        <p><?php _e('Baserow Importer requires PHP version 7.2 or higher. Plugin has been deactivated.', 'baserow-importer'); ?></p>
-                    </div>
-                    <?php
-                });
-                if (isset($_GET['activate'])) {
-                    unset($_GET['activate']);
-                }
-            }
+    public function show_version_info() {
+        if (is_admin() && current_user_can('manage_options')) {
+            ?>
+            <div class="notice notice-info is-dismissible">
+                <p><?php printf(
+                    'DSZ WooCommerce Product Importer Version: %s (Last Updated: %s)',
+                    BASEROW_IMPORTER_VERSION,
+                    BASEROW_IMPORTER_LAST_UPDATED
+                ); ?></p>
+            </div>
+            <?php
         }
     }
 
@@ -117,6 +102,7 @@ class Baserow_Woo_Importer {
     }
 
     public function handle_product_deletion($post_id) {
+        // Check if this is a product
         if (get_post_type($post_id) !== 'product') {
             return;
         }
@@ -124,6 +110,7 @@ class Baserow_Woo_Importer {
         global $wpdb;
         $table_name = $wpdb->prefix . 'baserow_imported_products';
 
+        // Get the Baserow ID for this product
         $baserow_product = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT baserow_id FROM $table_name WHERE woo_product_id = %d",
@@ -135,13 +122,13 @@ class Baserow_Woo_Importer {
             return;
         }
 
-        if ($this->api_handler && method_exists($this->api_handler, 'is_initialized') && $this->api_handler->is_initialized()) {
-            $this->api_handler->update_product($baserow_product->baserow_id, array(
-                'imported_to_woo' => false,
-                'woo_product_id' => null
-            ));
-        }
+        // Update Baserow to mark the product as not imported
+        $this->api_handler->update_product($baserow_product->baserow_id, array(
+            'imported_to_woo' => false,
+            'woo_product_id' => null
+        ));
 
+        // Remove from tracking table
         $wpdb->delete(
             $table_name,
             array('woo_product_id' => $post_id),
@@ -150,31 +137,31 @@ class Baserow_Woo_Importer {
     }
 
     public function init() {
-        try {
-            if (!class_exists('WooCommerce')) {
-                throw new Exception('Baserow Importer requires WooCommerce to be installed and activated.');
-            }
-
-            $this->check_requirements();
-            $this->load_dependencies();
-            $this->initialize_components();
-
-        } catch (Exception $e) {
-            add_action('admin_notices', function() use ($e) {
+        if (!class_exists('WooCommerce')) {
+            add_action('admin_notices', function() {
                 ?>
                 <div class="error">
-                    <p><?php echo esc_html($e->getMessage()); ?></p>
+                    <p><?php _e('Baserow Importer requires WooCommerce to be installed and activated.', 'baserow-importer'); ?></p>
+                </div>
+                <?php
+            });
+            return;
+        }
+
+        // Check log file permissions
+        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
+        if (!is_writable($log_file)) {
+            add_action('admin_notices', function() {
+                ?>
+                <div class="error">
+                    <p><?php _e('Baserow Importer log file is not writable. Please check permissions.', 'baserow-importer'); ?></p>
                 </div>
                 <?php
             });
         }
-    }
 
-    private function check_requirements() {
-        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
-        if (!is_writable($log_file)) {
-            throw new Exception('Baserow Importer log file is not writable. Please check permissions.');
-        }
+        $this->load_dependencies();
+        $this->initialize_components();
     }
 
     private function load_dependencies() {
@@ -187,7 +174,7 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
 
-        // Load modular components
+        // Load new modular components
         if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
@@ -207,64 +194,15 @@ class Baserow_Woo_Importer {
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
-
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/admin/class-baserow-image-settings.php';
         }
     }
 
     private function initialize_components() {
-        try {
-            // Initialize settings first
-            $this->settings = new Baserow_Settings();
-            
-            // Initialize API handler with validation
-            $this->api_handler = new Baserow_API_Handler();
-            if (!$this->api_handler->init()) {
-                throw new Exception('API configuration is incomplete or invalid. Please check your settings.');
-            }
-
-            // Initialize other components
-            $this->product_importer = new Baserow_Product_Importer($this->api_handler);
-            $this->order_handler = new Baserow_Order_Handler($this->api_handler);
-            $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
-
-            if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
-                $this->image_settings = new Baserow_Image_Settings();
-            }
-
-        } catch (Exception $e) {
-            add_action('admin_notices', function() use ($e) {
-                ?>
-                <div class="error">
-                    <p><?php echo esc_html($e->getMessage()); ?></p>
-                </div>
-                <?php
-            });
-        }
-    }
-
-    public function display_admin_notices() {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-
-        $api_url = get_option('baserow_api_url');
-        $api_token = get_option('baserow_api_token');
-        $table_id = get_option('baserow_table_id');
-
-        if (empty($api_url) || empty($api_token) || empty($table_id)) {
-            ?>
-            <div class="notice notice-warning">
-                <p>
-                    <?php _e('Baserow Importer requires configuration. Please visit the ', 'baserow-importer'); ?>
-                    <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">
-                        <?php _e('settings page', 'baserow-importer'); ?>
-                    </a>
-                    <?php _e(' to complete setup.', 'baserow-importer'); ?>
-                </p>
-            </div>
-            <?php
-        }
+        $this->api_handler = new Baserow_API_Handler();
+        $this->settings = new Baserow_Settings();
+        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
+        $this->order_handler = new Baserow_Order_Handler($this->api_handler);
+        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
     }
 }
 

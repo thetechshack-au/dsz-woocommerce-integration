@@ -2,8 +2,8 @@
 /**
  * Class: Baserow Product AJAX Handler
  * Description: Handles AJAX operations for products
- * Version: 1.5.0
- * Last Updated: 2024-01-15 14:00:00 UTC
+ * Version: 1.4.0
+ * Last Updated: 2024-01-09 14:00:00 UTC
  */
 
 if (!defined('ABSPATH')) {
@@ -15,7 +15,6 @@ class Baserow_Product_Ajax {
 
     private $product_importer;
     private $product_tracker;
-    private $api_handler;
 
     public function __construct() {
         // Register AJAX actions
@@ -23,92 +22,14 @@ class Baserow_Product_Ajax {
         add_action('wp_ajax_sync_baserow_product', array($this, 'sync_product'));
         add_action('wp_ajax_get_product_status', array($this, 'get_product_status'));
         add_action('wp_ajax_get_import_stats', array($this, 'get_import_stats'));
-        add_action('wp_ajax_search_baserow_products', array($this, 'search_products'));
     }
 
     /**
      * Set dependencies
      */
-    public function set_dependencies($product_importer, $product_tracker, $api_handler) {
+    public function set_dependencies($product_importer, $product_tracker) {
         $this->product_importer = $product_importer;
         $this->product_tracker = $product_tracker;
-        $this->api_handler = $api_handler;
-    }
-
-    /**
-     * Handle product search AJAX request
-     */
-    public function search_products() {
-        $this->verify_ajax_nonce();
-
-        if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
-            return;
-        }
-
-        // Validate and sanitize input parameters
-        $search_args = [
-            'search' => isset($_GET['search']) ? sanitize_text_field($_GET['search']) : '',
-            'sku' => isset($_GET['sku']) ? sanitize_text_field($_GET['sku']) : '',
-            'category' => isset($_GET['category']) ? sanitize_text_field($_GET['category']) : '',
-            'page' => isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1,
-            'sort_by' => isset($_GET['sort_by']) ? sanitize_text_field($_GET['sort_by']) : 'id',
-            'sort_order' => isset($_GET['sort_order']) ? sanitize_text_field($_GET['sort_order']) : 'asc'
-        ];
-
-        $this->log_debug("Starting product search", [
-            'search_args' => $search_args
-        ]);
-
-        try {
-            // Perform search
-            $results = $this->api_handler->search_products($search_args);
-
-            if (is_wp_error($results)) {
-                $this->log_error("Search failed", [
-                    'error' => $results->get_error_message()
-                ]);
-                wp_send_json_error($results->get_error_message());
-                return;
-            }
-
-            // Enhance results with WooCommerce data
-            if (!empty($results['products'])) {
-                foreach ($results['products'] as &$product) {
-                    $woo_product_id = $this->product_tracker->get_woo_product_id($product['id']);
-                    if ($woo_product_id) {
-                        $woo_product = wc_get_product($woo_product_id);
-                        if ($woo_product) {
-                            $product['woo_status'] = [
-                                'imported' => true,
-                                'product_id' => $woo_product_id,
-                                'status' => $woo_product->get_status(),
-                                'stock' => $woo_product->get_stock_quantity(),
-                                'price' => $woo_product->get_price(),
-                                'last_sync' => get_post_meta($woo_product_id, '_last_baserow_sync', true)
-                            ];
-                        }
-                    } else {
-                        $product['woo_status'] = [
-                            'imported' => false
-                        ];
-                    }
-                }
-            }
-
-            $this->log_info("Search completed successfully", [
-                'total_results' => $results['total'],
-                'page' => $results['page']
-            ]);
-
-            wp_send_json_success($results);
-
-        } catch (Exception $e) {
-            $this->log_error("Search exception", [
-                'error' => $e->getMessage()
-            ]);
-            wp_send_json_error($e->getMessage());
-        }
     }
 
     /**

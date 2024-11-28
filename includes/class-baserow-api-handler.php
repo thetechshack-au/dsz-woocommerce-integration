@@ -3,11 +3,21 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Handles API interactions with Baserow
+ */
 class Baserow_API_Handler {
+    /** @var string */
     private $api_url;
+    
+    /** @var string */
     private $api_token;
+    
+    /** @var string */
     private $table_id;
-    private $per_page = 20; // Number of items per page
+    
+    /** @var int */
+    private $per_page = 20;
 
     public function __construct() {
         $this->api_url = get_option('baserow_api_url');
@@ -15,6 +25,11 @@ class Baserow_API_Handler {
         $this->table_id = get_option('baserow_table_id');
     }
 
+    /**
+     * Get unique categories from Baserow
+     *
+     * @return array|WP_Error Array of categories or WP_Error on failure
+     */
     public function get_categories() {
         Baserow_Logger::info("Fetching unique categories");
 
@@ -72,7 +87,13 @@ class Baserow_API_Handler {
         return $categories;
     }
 
-    public function get_product($product_id) {
+    /**
+     * Get a single product from Baserow
+     *
+     * @param string $product_id The ID of the product to retrieve
+     * @return array|WP_Error Product data array or WP_Error on failure
+     */
+    public function get_product(string $product_id) {
         Baserow_Logger::info("Fetching product with ID: {$product_id}");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
@@ -126,7 +147,14 @@ class Baserow_API_Handler {
         return $data;
     }
 
-    public function update_product($product_id, $data) {
+    /**
+     * Update a product in Baserow
+     *
+     * @param string $product_id The ID of the product to update
+     * @param array $data The data to update
+     * @return array|WP_Error Updated product data or WP_Error on failure
+     */
+    public function update_product(string $product_id, array $data) {
         Baserow_Logger::info("Updating product with ID: {$product_id}");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
@@ -204,7 +232,20 @@ class Baserow_API_Handler {
         return $updated_data;
     }
 
-    public function search_products($search_term = '', $category = '', $page = 1) {
+    /**
+     * Search for products in Baserow
+     *
+     * @param string $search_term The search term (optional)
+     * @param string $category The category to filter by (optional)
+     * @param int $page The page number (optional)
+     * @return array|WP_Error Search results array or WP_Error on failure
+     */
+    public function search_products(string $search_term = '', string $category = '', int $page = 1): array|WP_Error {
+        // Validate parameters
+        $page = max(1, $page); // Ensure page is at least 1
+        $search_term = sanitize_text_field($search_term);
+        $category = sanitize_text_field($category);
+
         Baserow_Logger::info("Searching products - Term: {$search_term}, Category: {$category}, Page: {$page}");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
@@ -272,7 +313,12 @@ class Baserow_API_Handler {
         return $data;
     }
 
-    public function test_connection() {
+    /**
+     * Test the connection to Baserow
+     *
+     * @return bool True if connection is successful, false otherwise
+     */
+    public function test_connection(): bool {
         Baserow_Logger::info("Testing API connection");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {

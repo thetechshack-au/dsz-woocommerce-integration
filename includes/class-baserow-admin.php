@@ -3,11 +3,26 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Handles admin functionality for the Baserow Importer
+ */
 class Baserow_Admin {
+    /** @var Baserow_API_Handler */
     private $api_handler;
+
+    /** @var object */
     private $product_importer;
+
+    /** @var object */
     private $settings;
 
+    /**
+     * Constructor
+     *
+     * @param Baserow_API_Handler $api_handler The API handler instance
+     * @param object $product_importer The product importer instance
+     * @param object $settings The settings instance
+     */
     public function __construct($api_handler, $product_importer, $settings) {
         $this->api_handler = $api_handler;
         $this->product_importer = $product_importer;
@@ -15,7 +30,10 @@ class Baserow_Admin {
         $this->init_hooks();
     }
 
-    private function init_hooks() {
+    /**
+     * Initialize WordPress hooks
+     */
+    private function init_hooks(): void {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('wp_ajax_test_baserow_connection', array($this, 'test_baserow_connection'));
         add_action('wp_ajax_search_products', array($this, 'search_products'));
@@ -25,7 +43,10 @@ class Baserow_Admin {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
 
-    public function add_admin_menu() {
+    /**
+     * Add admin menu items
+     */
+    public function add_admin_menu(): void {
         add_menu_page(
             'Baserow Importer',
             'Baserow Importer',
@@ -46,7 +67,12 @@ class Baserow_Admin {
         );
     }
 
-    public function enqueue_admin_scripts($hook) {
+    /**
+     * Enqueue admin scripts and styles
+     *
+     * @param string $hook The current admin page
+     */
+    public function enqueue_admin_scripts(string $hook): void {
         if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
             return;
         }
@@ -73,7 +99,12 @@ class Baserow_Admin {
         ));
     }
 
-    private function check_api_configuration() {
+    /**
+     * Check if API configuration is complete
+     *
+     * @return bool True if configuration is complete, false otherwise
+     */
+    private function check_api_configuration(): bool {
         $api_url = get_option('baserow_api_url');
         $api_token = get_option('baserow_api_token');
         $table_id = get_option('baserow_table_id');
@@ -81,7 +112,10 @@ class Baserow_Admin {
         return !empty($api_url) && !empty($api_token) && !empty($table_id);
     }
 
-    private function render_configuration_notice() {
+    /**
+     * Render configuration notice
+     */
+    private function render_configuration_notice(): void {
         ?>
         <div class="wrap">
             <h1>Baserow Product Importer</h1>
@@ -94,7 +128,10 @@ class Baserow_Admin {
         <?php
     }
 
-    private function render_import_results() {
+    /**
+     * Render import results
+     */
+    private function render_import_results(): void {
         $import_results = get_transient('baserow_import_results');
         if ($import_results) {
             delete_transient('baserow_import_results');
@@ -111,7 +148,10 @@ class Baserow_Admin {
         }
     }
 
-    public function render_admin_page() {
+    /**
+     * Render admin page
+     */
+    public function render_admin_page(): void {
         if (!$this->check_api_configuration()) {
             $this->render_configuration_notice();
             return;
@@ -159,130 +199,169 @@ class Baserow_Admin {
         <?php
     }
 
-    public function get_categories() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $categories = $this->api_handler->get_categories();
-        
-        if (is_wp_error($categories)) {
-            wp_send_json_error(array('message' => $categories->get_error_message()));
-            return;
-        }
-
-        wp_send_json_success(array('categories' => $categories));
-    }
-
-    public function test_baserow_connection() {
-        check_ajax_referer('baserow_test_connection', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $result = $this->api_handler->test_connection();
-        wp_send_json($result ? 
-            array('success' => true, 'message' => 'Connection successful') : 
-            array('success' => false, 'message' => 'Connection failed')
-        );
-    }
-
-    public function search_products() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
-        
-        $search_term = sanitize_text_field($_POST['search'] ?? '');
-        $category = sanitize_text_field($_POST['category'] ?? '');
-        $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
-        
-        $result = $this->api_handler->search_products($search_term, $category, $page);
-        
-        if (is_wp_error($result)) {
-            wp_send_json_error(array('message' => $result->get_error_message()));
-            return;
-        }
-
-        if (!empty($result['results'])) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'baserow_imported_products';
-
-            foreach ($result['results'] as &$product) {
-                // Get WooCommerce product ID from tracking table
-                $tracking_data = $wpdb->get_row($wpdb->prepare(
-                    "SELECT woo_product_id FROM $table_name WHERE baserow_id = %s",
-                    $product['id']
-                ));
-
-                // Check if product exists in WooCommerce
-                $woo_product_id = $tracking_data ? $tracking_data->woo_product_id : null;
-                $woo_product = $woo_product_id ? wc_get_product($woo_product_id) : null;
-
-                // Set import statuses
-                $product['baserow_imported'] = !empty($product['imported_to_woo']);
-                $product['woo_exists'] = ($woo_product && $woo_product->get_status() !== 'trash');
-
-                if ($product['woo_exists']) {
-                    $product['woo_product_id'] = $woo_product_id;
-                    $product['woo_url'] = get_edit_post_link($woo_product_id, '');
-                } else if ($tracking_data) {
-                    // Clean up stale tracking record
-                    $wpdb->delete($table_name, array('baserow_id' => $product['id']));
-                }
-
-                // Get the first image URL
-                $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
-
-                // Format price with $ symbol
-                $product['price'] = !empty($product['Price']) ? number_format((float)$product['Price'], 2, '.', '') : '0.00';
-                
-                // Add cost price if available
-                $product['cost_price'] = !empty($product['Cost Price']) ? number_format((float)$product['Cost Price'], 2, '.', '') : null;
-
-                // Add Direct Import status
-                $product['DI'] = !empty($product['DI']) ? $product['DI'] : 'No';
-
-                // Add Free Shipping status
-                $product['au_free_shipping'] = !empty($product['au_free_shipping']) ? $product['au_free_shipping'] : 'No';
-
-                // Add New Arrival status
-                $product['new_arrival'] = !empty($product['new_arrival']) ? $product['new_arrival'] : 'No';
+    /**
+     * AJAX handler for getting categories
+     */
+    public function get_categories(): void {
+        try {
+            if (!check_ajax_referer('baserow_importer_nonce', 'nonce', false)) {
+                throw new Exception('Security check failed');
             }
-        }
 
-        wp_send_json_success($result);
+            nocache_headers();
+            
+            $categories = $this->api_handler->get_categories();
+            
+            if (is_wp_error($categories)) {
+                throw new Exception($categories->get_error_message());
+            }
+
+            wp_send_json_success(array('categories' => $categories));
+        } catch (Exception $e) {
+            Baserow_Logger::error("Failed to get categories: " . $e->getMessage());
+            wp_send_json_error(array('message' => $e->getMessage()));
+        }
     }
 
-    public function delete_product() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
-        nocache_headers();
+    /**
+     * AJAX handler for testing Baserow connection
+     */
+    public function test_baserow_connection(): void {
+        try {
+            if (!check_ajax_referer('baserow_test_connection', 'nonce', false)) {
+                throw new Exception('Security check failed');
+            }
 
-        if (!isset($_POST['product_id'])) {
-            wp_send_json_error(array('message' => 'Product ID not provided'));
-            return;
+            nocache_headers();
+            
+            $result = $this->api_handler->test_connection();
+            wp_send_json($result ? 
+                array('success' => true, 'message' => 'Connection successful') : 
+                array('success' => false, 'message' => 'Connection failed')
+            );
+        } catch (Exception $e) {
+            Baserow_Logger::error("Connection test failed: " . $e->getMessage());
+            wp_send_json_error(array('message' => $e->getMessage()));
         }
-
-        $woo_product_id = intval($_POST['product_id']);
-        $product = wc_get_product($woo_product_id);
-
-        if (!$product) {
-            wp_send_json_error(array('message' => 'Product not found'));
-            return;
-        }
-
-        // The deletion hook will handle updating Baserow and the tracking table
-        wp_delete_post($woo_product_id, true);
-
-        wp_send_json_success(array(
-            'message' => 'Product deleted successfully'
-        ));
     }
 
-    private function validate_import_request() {
+    /**
+     * AJAX handler for searching products
+     */
+    public function search_products(): void {
+        try {
+            if (!check_ajax_referer('baserow_importer_nonce', 'nonce', false)) {
+                throw new Exception('Security check failed');
+            }
+
+            nocache_headers();
+
+            // Validate and sanitize input parameters
+            $search_term = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+            $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
+            $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+
+            // Perform search
+            $result = $this->api_handler->search_products($search_term, $category, $page);
+            
+            if (is_wp_error($result)) {
+                throw new Exception($result->get_error_message());
+            }
+
+            if (!empty($result['results'])) {
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'baserow_imported_products';
+
+                foreach ($result['results'] as &$product) {
+                    // Get WooCommerce product ID from tracking table
+                    $tracking_data = $wpdb->get_row($wpdb->prepare(
+                        "SELECT woo_product_id FROM $table_name WHERE baserow_id = %s",
+                        $product['id']
+                    ));
+
+                    // Check if product exists in WooCommerce
+                    $woo_product_id = $tracking_data ? $tracking_data->woo_product_id : null;
+                    $woo_product = $woo_product_id ? wc_get_product($woo_product_id) : null;
+
+                    // Set import statuses
+                    $product['baserow_imported'] = !empty($product['imported_to_woo']);
+                    $product['woo_exists'] = ($woo_product && $woo_product->get_status() !== 'trash');
+
+                    if ($product['woo_exists']) {
+                        $product['woo_product_id'] = $woo_product_id;
+                        $product['woo_url'] = get_edit_post_link($woo_product_id, '');
+                    } else if ($tracking_data) {
+                        // Clean up stale tracking record
+                        $wpdb->delete($table_name, array('baserow_id' => $product['id']));
+                    }
+
+                    // Get the first image URL
+                    $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
+
+                    // Format price with $ symbol
+                    $product['price'] = !empty($product['Price']) ? number_format((float)$product['Price'], 2, '.', '') : '0.00';
+                    
+                    // Add cost price if available
+                    $product['cost_price'] = !empty($product['Cost Price']) ? number_format((float)$product['Cost Price'], 2, '.', '') : null;
+
+                    // Add Direct Import status
+                    $product['DI'] = !empty($product['DI']) ? $product['DI'] : 'No';
+
+                    // Add Free Shipping status
+                    $product['au_free_shipping'] = !empty($product['au_free_shipping']) ? $product['au_free_shipping'] : 'No';
+
+                    // Add New Arrival status
+                    $product['new_arrival'] = !empty($product['new_arrival']) ? $product['new_arrival'] : 'No';
+                }
+            }
+
+            wp_send_json_success($result);
+        } catch (Exception $e) {
+            Baserow_Logger::error("Search failed: " . $e->getMessage());
+            wp_send_json_error(array('message' => $e->getMessage()));
+        }
+    }
+
+    /**
+     * AJAX handler for deleting products
+     */
+    public function delete_product(): void {
+        try {
+            if (!check_ajax_referer('baserow_importer_nonce', 'nonce', false)) {
+                throw new Exception('Security check failed');
+            }
+
+            nocache_headers();
+
+            if (!isset($_POST['product_id'])) {
+                throw new Exception('Product ID not provided');
+            }
+
+            $woo_product_id = intval($_POST['product_id']);
+            $product = wc_get_product($woo_product_id);
+
+            if (!$product) {
+                throw new Exception('Product not found');
+            }
+
+            // The deletion hook will handle updating Baserow and the tracking table
+            wp_delete_post($woo_product_id, true);
+
+            wp_send_json_success(array(
+                'message' => 'Product deleted successfully'
+            ));
+        } catch (Exception $e) {
+            Baserow_Logger::error("Delete failed: " . $e->getMessage());
+            wp_send_json_error(array('message' => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Validate import request
+     *
+     * @throws Exception If validation fails
+     */
+    private function validate_import_request(): void {
         if (!check_ajax_referer('baserow_importer_nonce', 'nonce', false)) {
             throw new Exception("Security check failed");
         }
@@ -296,7 +375,14 @@ class Baserow_Admin {
         }
     }
 
-    private function update_baserow_status($product_id, $woo_product_id) {
+    /**
+     * Update Baserow status
+     *
+     * @param string $product_id The product ID
+     * @param int $woo_product_id The WooCommerce product ID
+     * @return bool True if update successful, false otherwise
+     */
+    private function update_baserow_status(string $product_id, int $woo_product_id): bool {
         $update_data = array(
             'imported_to_woo' => true,
             'woo_product_id' => $woo_product_id,
@@ -316,9 +402,11 @@ class Baserow_Admin {
         return true;
     }
 
-    public function import_product() {
+    /**
+     * AJAX handler for importing products
+     */
+    public function import_product(): void {
         try {
-            // Set no-cache headers
             nocache_headers();
             
             Baserow_Logger::info("Import product AJAX handler started");

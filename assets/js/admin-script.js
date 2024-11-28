@@ -39,6 +39,7 @@ jQuery(document).ready(function($) {
     }
 
     function loadCategories() {
+        console.log('Loading categories...');
         return $.ajax({
             url: baserowImporter.ajax_url,
             type: 'POST',
@@ -47,20 +48,32 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
-                if (response.success) {
+                console.log('Categories response:', response);
+                if (response.success && response.data && response.data.categories) {
                     var categories = response.data.categories;
+                    console.log('Found categories:', categories);
+                    
                     var currentCategory = categoryFilter.val();
                     categoryFilter.find('option:not(:first)').remove();
+                    
                     categories.forEach(function(category) {
                         categoryFilter.append($('<option>', {
                             value: category,
                             text: category
                         }));
                     });
+                    
                     if (currentCategory) {
                         categoryFilter.val(currentCategory);
                     }
+                    
+                    console.log('Category dropdown updated. Current value:', categoryFilter.val());
+                } else {
+                    console.error('Invalid categories response:', response);
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Categories AJAX error:', status, error);
             }
         });
     }
@@ -154,8 +167,6 @@ jQuery(document).ready(function($) {
         initBulkSelectionHandlers();
     }
 
-    // [Rest of the code remains unchanged...]
-
     function initBulkSelectionHandlers() {
         $('#select-all-products, #select-all-header').on('change', function() {
             var isChecked = $(this).prop('checked');
@@ -217,6 +228,8 @@ jQuery(document).ready(function($) {
         showLoading();
         currentPage = page || 1;
         
+        console.log('Searching products - Page:', currentPage, 'Category:', categoryFilter.val());
+        
         $.ajax({
             url: baserowImporter.ajax_url,
             type: 'POST',
@@ -229,6 +242,7 @@ jQuery(document).ready(function($) {
             },
             cache: false,
             success: function(response) {
+                console.log('Search response:', response);
                 hideLoading();
                 if (response.success) {
                     renderProducts(response.data.results);
@@ -241,7 +255,8 @@ jQuery(document).ready(function($) {
                     handleError(response.data.message);
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('Search AJAX error:', status, error);
                 handleError('Failed to fetch products. Please try again.');
             }
         });
@@ -343,6 +358,7 @@ jQuery(document).ready(function($) {
     });
 
     // Initial load
+    console.log('Initializing...');
     loadCategories();
     searchProducts(1);
 

@@ -160,17 +160,27 @@ class Baserow_Admin {
     }
 
     public function get_categories() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        nocache_headers();
-        
-        $categories = $this->api_handler->get_categories();
-        
-        if (is_wp_error($categories)) {
-            wp_send_json_error(array('message' => $categories->get_error_message()));
-            return;
-        }
+        try {
+            check_ajax_referer('baserow_importer_nonce', 'nonce');
+            nocache_headers();
+            
+            Baserow_Logger::info("AJAX: Getting categories");
+            
+            $categories = $this->api_handler->get_categories();
+            
+            if (is_wp_error($categories)) {
+                Baserow_Logger::error("AJAX: Category error - " . $categories->get_error_message());
+                wp_send_json_error(array('message' => $categories->get_error_message()));
+                return;
+            }
 
-        wp_send_json_success(array('categories' => $categories));
+            Baserow_Logger::debug("AJAX: Categories response - " . print_r($categories, true));
+            wp_send_json_success(array('categories' => $categories));
+
+        } catch (Exception $e) {
+            Baserow_Logger::error("AJAX: Category exception - " . $e->getMessage());
+            wp_send_json_error(array('message' => $e->getMessage()));
+        }
     }
 
     public function test_baserow_connection() {

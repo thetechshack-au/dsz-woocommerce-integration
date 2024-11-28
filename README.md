@@ -10,6 +10,11 @@ A WordPress plugin that seamlessly integrates Baserow (DSZ) with WooCommerce, en
 - Category mapping and management
 - Shipping zone configuration
 - Stock level synchronization
+- Advanced product search functionality:
+  - Multi-parameter search (name, SKU, category)
+  - Pagination and sorting capabilities
+  - Real-time WooCommerce status integration
+  - Efficient filtering and result handling
 
 ### Image Processing
 - WebP conversion with JPEG fallback
@@ -64,6 +69,38 @@ Products are automatically imported based on your configuration:
 4. Categories are mapped
 5. Stock levels are synchronized
 
+### Searching Products
+The plugin provides advanced search capabilities:
+```php
+// Example: Search products using AJAX
+jQuery.ajax({
+    url: ajaxurl,
+    type: 'GET',
+    data: {
+        action: 'search_baserow_products',
+        nonce: baserow_ajax_nonce,
+        search: 'keyword',
+        sku: 'SKU123',
+        category: 'Electronics',
+        page: 1,
+        sort_by: 'Name',
+        sort_order: 'asc'
+    },
+    success: function(response) {
+        // Handle search results
+        console.log(response.data.products);
+    }
+});
+```
+
+Search parameters:
+- `search`: Search term for product name/description
+- `sku`: Product SKU to search for
+- `category`: Category to filter by
+- `page`: Page number for pagination
+- `sort_by`: Field to sort by (id, Name, SKU, Category)
+- `sort_order`: Sort direction (asc/desc)
+
 ### Managing Orders
 Orders are automatically synchronized:
 1. New orders are sent to Baserow
@@ -96,6 +133,7 @@ dsz-woocommerce-integration/
 - Image Handler: Manages image processing
 - Order Handler: Manages order synchronization
 - API Handler: Manages API communication
+- Search Handler: Manages product search and filtering
 
 ### Extending the Plugin
 The plugin provides several filters and actions for customization:
@@ -111,6 +149,12 @@ add_filter('baserow_image_handler_settings', function($settings) {
 add_filter('baserow_product_mapping', function($product_data) {
     // Modify product data
     return $product_data;
+});
+
+// Modify search results
+add_filter('baserow_search_results', function($results) {
+    // Customize search results
+    return $results;
 });
 ```
 
@@ -132,6 +176,11 @@ See [Developer Documentation](docs/image-settings.md) for more details.
 3. Import Failures
    - Check data format
    - Verify required fields
+   - Review error logs
+
+4. Search Issues
+   - Verify API connectivity
+   - Check search parameters
    - Review error logs
 
 ### Logging

@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.0] - 2024
 ### Added
+- Advanced search functionality:
+  - Multi-parameter search (name, SKU, category)
+  - Pagination and sorting capabilities
+  - Enhanced filtering options
+  - WooCommerce status integration in search results
 - WebP image conversion with automatic JPEG fallback
 - Configurable image settings in admin panel
 - File integrity checks for image processing
@@ -21,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced logging with better context
 - Removed version timestamp display from admin notices
 - Optimized memory usage in image handling
+- Added type declarations and return type hints
+- Improved API response handling and validation
 
 ### Fixed
 - Image truncation issues during processing

@@ -23,8 +23,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request only the Category field to minimize data transfer
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category";
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -82,37 +81,20 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Build base URL with essential parameters
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?";
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true";
         
-        // Add query parameters
-        $params = array(
-            'user_field_names' => 'true',
-            'size' => $this->per_page,
-            'page' => max(1, intval($page))
-        );
+        // Add pagination
+        $url .= "&size={$this->per_page}&page=" . max(1, intval($page));
 
-        // Add search filters if provided
+        // Add search filters
         if (!empty($search_term)) {
-            $params['filter_type'] = 'OR';
-            $params['filter__Title__contains'] = $search_term;
-            $params['filter__SKU__contains'] = $search_term;
+            $url .= "&search=" . urlencode($search_term);
         }
 
-        // Add category filter if provided
+        // Add category filter
         if (!empty($category)) {
-            if (!empty($search_term)) {
-                // If we have both search and category, use AND for the category
-                $params['filter_type'] = 'AND';
-                $params['filter__Category__contains'] = $category;
-            } else {
-                // If we only have category, just use contains
-                $params['filter__Category__contains'] = $category;
-            }
+            $url .= "&filter__Category__equal=" . urlencode($category);
         }
-
-        // Build the final URL
-        $url .= http_build_query($params);
 
         Baserow_Logger::debug("API Request URL: {$url}");
 

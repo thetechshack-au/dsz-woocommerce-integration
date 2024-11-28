@@ -2,8 +2,7 @@
 /**
  * Plugin Name: DSZ WooCommerce Product Importer
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.4.0
- * Last Updated: 2024-01-09 14:00:00 UTC
+ * Version: 1.5.0
  * Author: Andrew Waite
  * Requires PHP: 7.2
  */
@@ -12,8 +11,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.4.0');
-define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-09 14:00:00 UTC');
+define('BASEROW_IMPORTER_VERSION', '1.5.0');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -29,21 +27,6 @@ class Baserow_Woo_Importer {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
-        add_action('admin_notices', array($this, 'show_version_info'));
-    }
-
-    public function show_version_info() {
-        if (is_admin() && current_user_can('manage_options')) {
-            ?>
-            <div class="notice notice-info is-dismissible">
-                <p><?php printf(
-                    'DSZ WooCommerce Product Importer Version: %s (Last Updated: %s)',
-                    BASEROW_IMPORTER_VERSION,
-                    BASEROW_IMPORTER_LAST_UPDATED
-                ); ?></p>
-            </div>
-            <?php
-        }
     }
 
     public function activate() {

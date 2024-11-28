@@ -1,78 +1,157 @@
 # DSZ WooCommerce Product Importer
 
-A WordPress plugin that enables seamless integration between Baserow and WooCommerce, allowing you to import and synchronize products from your Baserow database into your WooCommerce store.
-
-## Requirements
-
-- WordPress
-- WooCommerce
-- PHP 7.2 or higher
-- Write permissions for plugin directory (for logging)
-
-## Installation
-
-1. Download the plugin files
-2. Upload the plugin folder to the `/wp-content/plugins/` directory
-3. Activate the plugin through the 'Plugins' menu in WordPress
-4. Configure the plugin settings in the WordPress admin panel
+A WordPress plugin that seamlessly integrates Baserow (DSZ) with WooCommerce, enabling automated product imports and order synchronization.
 
 ## Features
 
-- Import products from Baserow database to WooCommerce
-- Automatic product synchronization
-- Product deletion handling (automatically updates Baserow when products are deleted in WooCommerce)
-- Detailed logging system for troubleshooting
-- Admin interface for easy configuration
-- Tracks imported products to maintain data consistency
+### Product Management
+- Automated product imports from Baserow
+- Smart image handling with WebP optimization
+- Category mapping and management
+- Shipping zone configuration
+- Stock level synchronization
+
+### Image Processing
+- WebP conversion with JPEG fallback
+- Configurable image dimensions
+- Quality optimization settings
+- Automatic file integrity checks
+- Efficient memory management
+
+### Order Handling
+- Order status synchronization
+- Reference tracking
+- Error recovery and retry logic
+
+## Requirements
+
+- WordPress 5.0 or higher
+- WooCommerce 5.0 or higher
+- PHP 7.2 or higher
+- GD or ImageMagick for image processing
+
+## Installation
+
+1. Upload the plugin files to `/wp-content/plugins/dsz-woocommerce-integration`
+2. Activate the plugin through the 'Plugins' screen in WordPress
+3. Configure the plugin settings under 'DSZ Settings' in the admin menu
 
 ## Configuration
 
-1. Navigate to the plugin settings in WordPress admin panel
-2. Configure your Baserow API credentials
-3. Set up the mapping between Baserow fields and WooCommerce product fields
-4. Configure synchronization settings
+### Image Settings
+Configure image processing options under DSZ Settings > Image Settings:
+- Maximum dimensions
+- Quality settings
+- Format preferences
+- Storage options
 
-## Components
+See [Image Settings Documentation](docs/image-settings.md) for detailed information.
 
-The plugin consists of several key components:
+### API Configuration
+Set up your Baserow API connection:
+1. Navigate to DSZ Settings > API Settings
+2. Enter your API credentials
+3. Test the connection
+4. Save settings
 
-- **Admin Interface**: Manages the plugin's settings and provides the user interface
-- **API Handler**: Handles all communication with the Baserow API
-- **Product Importer**: Manages the product import and synchronization process
-- **Settings Manager**: Handles plugin configuration and options
-- **Logger**: Provides detailed logging for troubleshooting
+## Usage
 
-## File Structure
+### Importing Products
+Products are automatically imported based on your configuration:
+1. New products are created
+2. Existing products are updated
+3. Images are optimized and processed
+4. Categories are mapped
+5. Stock levels are synchronized
 
+### Managing Orders
+Orders are automatically synchronized:
+1. New orders are sent to Baserow
+2. Order status updates are tracked
+3. References are maintained
+4. Errors are logged and retried
+
+## Development
+
+### Directory Structure
 ```
 dsz-woocommerce-integration/
 ├── assets/
 │   ├── css/
-│   │   └── admin-style.css
 │   └── js/
-│       ├── admin-script.js
-│       └── settings.js
+├── docs/
 ├── includes/
-│   ├── class-baserow-admin.php
-│   ├── class-baserow-api-handler.php
-│   ├── class-baserow-logger.php
-│   ├── class-baserow-product-importer.php
-│   └── class-baserow-settings.php
-└── baserow-woo-importer.php
+│   ├── admin/
+│   ├── ajax/
+│   ├── categories/
+│   ├── orders/
+│   ├── product/
+│   ├── shipping/
+│   └── traits/
+└── tests/
 ```
 
-## Technical Details
+### Key Components
+- Product Mapper: Handles data transformation
+- Image Handler: Manages image processing
+- Order Handler: Manages order synchronization
+- API Handler: Manages API communication
 
-- The plugin creates a custom database table to track imported products
-- Automatically handles product deletions by updating the corresponding Baserow records
-- Includes error handling and validation
-- Implements WordPress and WooCommerce best practices
-- Uses proper security measures including ABSPATH checks and capability verification
+### Extending the Plugin
+The plugin provides several filters and actions for customization:
 
-## Version
+```php
+// Modify image settings
+add_filter('baserow_image_handler_settings', function($settings) {
+    $settings['image']['max_width'] = 1600;
+    return $settings;
+});
 
-Current Version: 1.2.19
+// Customize product mapping
+add_filter('baserow_product_mapping', function($product_data) {
+    // Modify product data
+    return $product_data;
+});
+```
 
-## Author
+See [Developer Documentation](docs/image-settings.md) for more details.
 
-Andrew Waite
+## Troubleshooting
+
+### Common Issues
+1. Image Processing Fails
+   - Check PHP memory limit
+   - Verify GD/ImageMagick installation
+   - Check file permissions
+
+2. API Connection Issues
+   - Verify API credentials
+   - Check network connectivity
+   - Review error logs
+
+3. Import Failures
+   - Check data format
+   - Verify required fields
+   - Review error logs
+
+### Logging
+Logs are stored in `wp-content/plugins/dsz-woocommerce-integration/baserow-importer.log`
+
+## Support
+
+For support:
+1. Check the documentation
+2. Review error logs
+3. Contact support team
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+## License
+
+This plugin is licensed under the GPL v2 or later.
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and updates.

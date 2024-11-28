@@ -51,23 +51,16 @@ jQuery(document).ready(function($) {
                     var categories = response.data.categories;
                     var currentCategory = categoryFilter.val();
                     categoryFilter.find('option:not(:first)').remove();
-                    
                     categories.forEach(function(category) {
-                        if (category && category.value) {
-                            categoryFilter.append($('<option>', {
-                                value: category.value,
-                                text: category.label
-                            }));
-                        }
+                        categoryFilter.append($('<option>', {
+                            value: category,
+                            text: category
+                        }));
                     });
-                    
                     if (currentCategory) {
                         categoryFilter.val(currentCategory);
                     }
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('Failed to load categories:', error);
             }
         });
     }

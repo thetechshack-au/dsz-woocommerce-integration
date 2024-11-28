@@ -23,8 +23,8 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request all rows with a larger size parameter
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1000";
+        // Request all rows with Category field, using a large size parameter
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&size=9999";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -63,7 +63,7 @@ class Baserow_API_Handler {
             foreach ($data['results'] as $product) {
                 if (!empty($product['Category'])) {
                     $category = trim($product['Category']);
-                    if (!in_array($category, $categories)) {
+                    if (!empty($category) && !in_array($category, $categories)) {
                         $categories[] = $category;
                     }
                 }

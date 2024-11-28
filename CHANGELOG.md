@@ -4,6 +4,22 @@ All notable changes to the DSZ WooCommerce Product Importer will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2024
+### Added
+- Enhanced API initialization and validation
+- Improved error handling for API configuration
+- Better logging for API connection issues
+
+### Changed
+- Improved API Handler initialization process
+- Enhanced credential validation
+- Better error messages for API configuration issues
+
+### Fixed
+- API connection issues with proper initialization checks
+- URL format validation in API Handler
+- Error handling for missing API credentials
+
 ## [1.5.0] - 2024
 ### Added
 - Advanced search functionality:

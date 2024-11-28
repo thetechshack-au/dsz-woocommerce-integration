@@ -4,38 +4,80 @@ if (!defined('ABSPATH')) {
 }
 
 class Baserow_API_Handler {
+    use Baserow_API_Request_Trait;
+    use Baserow_Logger_Trait;
+
     private string $api_url;
     private string $api_token;
     private string $table_id;
     private int $per_page = 20;
+    private bool $is_initialized = false;
 
     public function __construct() {
-        $this->api_url = get_option('baserow_api_url');
-        $this->api_token = get_option('baserow_api_token');
-        $this->table_id = get_option('baserow_table_id');
+        $this->init();
+    }
+
+    /**
+     * Initialize the API handler with credentials
+     *
+     * @return bool True if initialization successful, false otherwise
+     */
+    public function init(): bool {
+        $this->api_url = get_option('baserow_api_url', '');
+        $this->api_token = get_option('baserow_api_token', '');
+        $this->table_id = get_option('baserow_table_id', '');
+
+        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
+            $this->log_error("API configuration missing", [
+                'url_set' => !empty($this->api_url),
+                'token_set' => !empty($this->api_token),
+                'table_id_set' => !empty($this->table_id)
+            ]);
+            $this->is_initialized = false;
+            return false;
+        }
+
+        // Validate API URL format
+        if (!filter_var($this->api_url, FILTER_VALIDATE_URL)) {
+            $this->log_error("Invalid API URL format", [
+                'url' => $this->api_url
+            ]);
+            $this->is_initialized = false;
+            return false;
+        }
+
+        // Remove trailing slashes from API URL
+        $this->api_url = rtrim($this->api_url, '/');
+
+        $this->is_initialized = true;
+        return true;
+    }
+
+    /**
+     * Check if the API handler is properly initialized
+     *
+     * @return bool
+     */
+    private function check_initialization(): bool {
+        if (!$this->is_initialized) {
+            $this->log_error("API Handler not properly initialized");
+            return false;
+        }
+        return true;
     }
 
     /**
      * Search products in Baserow with various filters
      *
-     * @param array $args {
-     *     Optional. Array of search parameters.
-     *     @type string $search      Search term for product name/description
-     *     @type string $sku         Product SKU to search for
-     *     @type string $category    Category to filter by
-     *     @type int    $page        Page number for pagination
-     *     @type string $sort_by     Field to sort by
-     *     @type string $sort_order  Sort order (asc/desc)
-     * }
+     * @param array $args Search parameters
      * @return array|WP_Error Array of products or WP_Error on failure
      */
     public function search_products(array $args = []): array|WP_Error {
-        Baserow_Logger::info("Starting product search", ['args' => $args]);
-
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            Baserow_Logger::error("API configuration missing");
-            return new WP_Error('config_error', 'API configuration is incomplete');
+        if (!$this->check_initialization()) {
+            return new WP_Error('not_initialized', 'API Handler not properly initialized. Please check your API settings.');
         }
+
+        $this->log_info("Starting product search", ['args' => $args]);
 
         // Validate and sanitize input parameters
         $defaults = [
@@ -87,58 +129,31 @@ class Baserow_API_Handler {
         // Build URL with query parameters
         $url = add_query_arg(
             $query_params,
-            trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/"
+            "{$this->api_url}/api/database/rows/table/{$this->table_id}/"
         );
 
-        Baserow_Logger::debug("Search API Request URL: " . $url);
-
         // Make API request
-        $response = wp_remote_get($url, [
-            'headers' => [
-                'Authorization' => 'Token ' . $this->api_token,
-                'Content-Type' => 'application/json'
-            ],
-            'timeout' => 30
+        $response = $this->make_api_request($url, 'GET', null, [
+            'Authorization' => "Token {$this->api_token}"
         ]);
 
         if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed", ['error' => $error_message]);
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        Baserow_Logger::debug("API Response", [
-            'status' => $status_code,
-            'body' => $body
-        ]);
-
-        if ($status_code !== 200) {
-            $error_message = "API returned status code {$status_code}";
-            Baserow_Logger::error($error_message);
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = "Failed to parse JSON response: " . json_last_error_msg();
-            Baserow_Logger::error($error_message);
-            return new WP_Error('json_error', $error_message);
+            $this->log_error("Search request failed", [
+                'error' => $response->get_error_message()
+            ]);
+            return $response;
         }
 
         // Format response
         $result = [
-            'products' => $data['results'] ?? [],
-            'total' => $data['count'] ?? 0,
+            'products' => $response['results'] ?? [],
+            'total' => $response['count'] ?? 0,
             'page' => $args['page'],
-            'pages' => ceil(($data['count'] ?? 0) / $this->per_page),
+            'pages' => ceil(($response['count'] ?? 0) / $this->per_page),
             'per_page' => $this->per_page
         ];
 
-        Baserow_Logger::info("Search completed", [
+        $this->log_info("Search completed", [
             'total_results' => $result['total'],
             'page' => $result['page'],
             'total_pages' => $result['pages']
@@ -147,61 +162,38 @@ class Baserow_API_Handler {
         return $result;
     }
 
-    public function get_categories() {
-        Baserow_Logger::info("Fetching categories - Starting");
-
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            Baserow_Logger::error("API configuration missing");
-            return new WP_Error('config_error', 'API configuration is incomplete');
+    /**
+     * Get categories from Baserow
+     *
+     * @return array|WP_Error Array of categories or WP_Error on failure
+     */
+    public function get_categories(): array|WP_Error {
+        if (!$this->check_initialization()) {
+            return new WP_Error('not_initialized', 'API Handler not properly initialized. Please check your API settings.');
         }
 
-        // Build URL without field restriction to get all data
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
-        
-        Baserow_Logger::debug("Category API Request URL: " . $url);
+        $this->log_info("Fetching categories - Starting");
 
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
-                'Content-Type' => 'application/json'
-            ),
-            'timeout' => 30
-        ));
+        $url = "{$this->api_url}/api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
+        
+        $this->log_debug("Category API Request URL: " . $url);
+
+        $response = $this->make_api_request($url, 'GET', null, [
+            'Authorization' => "Token {$this->api_token}"
+        ]);
 
         if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed: {$error_message}");
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        Baserow_Logger::debug("API Response Status: " . $status_code);
-        Baserow_Logger::debug("API Response Body: " . $body);
-
-        if ($status_code !== 200) {
-            $error_message = "API returned status code {$status_code}";
-            Baserow_Logger::error($error_message);
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = "Failed to parse JSON response: " . json_last_error_msg();
-            Baserow_Logger::error($error_message);
-            return new WP_Error('json_error', $error_message);
+            $this->log_error("Category request failed", [
+                'error' => $response->get_error_message()
+            ]);
+            return $response;
         }
 
         // Extract categories
-        $categories = array();
-        if (!empty($data['results'])) {
-            foreach ($data['results'] as $product) {
+        $categories = [];
+        if (!empty($response['results'])) {
+            foreach ($response['results'] as $product) {
                 if (!empty($product['Category'])) {
-                    Baserow_Logger::debug("Processing category: " . $product['Category']);
-                    
-                    // Add the full category path
                     if (!in_array($product['Category'], $categories)) {
                         $categories[] = $product['Category'];
                     }
@@ -219,11 +211,11 @@ class Baserow_API_Handler {
             }
         }
 
-        // Sort categories
         sort($categories);
 
-        Baserow_Logger::info("Found " . count($categories) . " unique categories");
-        Baserow_Logger::debug("Categories: " . print_r($categories, true));
+        $this->log_info("Categories fetched successfully", [
+            'count' => count($categories)
+        ]);
 
         return $categories;
     }

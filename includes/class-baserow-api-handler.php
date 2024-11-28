@@ -212,18 +212,54 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Build base URL with page-based pagination
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page={$page}";
+        // Define required fields to minimize data transfer
+        $required_fields = array(
+            'id',
+            'Title',
+            'SKU',
+            'Category',
+            'Price',
+            'Cost Price',
+            'RrpPrice',  // Added RrpPrice field
+            'Image 1',
+            'DI',
+            'au_free_shipping',
+            'new_arrival',
+            'imported_to_woo',
+            'woo_product_id'  // Added woo_product_id field
+        );
+
+        // Build base URL with essential parameters
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?";
         
-        // Add search parameter if provided
+        // Add query parameters
+        $params = array(
+            'user_field_names' => 'true',
+            'size' => $this->per_page,
+            'page' => max(1, intval($page)),
+            'fields' => implode(',', $required_fields),
+            'order_by' => 'Title'  // Default sorting by title
+        );
+
+        // Add search filters
         if (!empty($search_term)) {
-            $url .= '&search=' . urlencode($search_term);
+            // Search in both Title and SKU fields
+            $params['filter_type'] = 'OR';
+            $params['filter__Title__contains'] = urlencode($search_term);
+            $params['filter__SKU__contains'] = urlencode($search_term);
         }
 
         // Add category filter if provided
         if (!empty($category)) {
-            $url .= '&filter__Category__equal=' . urlencode($category);
+            $params['filter__Category__equal'] = urlencode($category);
+            // If both search and category are present, adjust the filter type
+            if (!empty($search_term)) {
+                $params['filter_type'] = 'AND';
+            }
         }
+
+        // Build the final URL
+        $url .= http_build_query($params);
 
         Baserow_Logger::debug("API Request URL: {$url}");
 
@@ -259,6 +295,29 @@ class Baserow_API_Handler {
             $error_message = "Failed to parse JSON response: " . json_last_error_msg();
             Baserow_Logger::error($error_message);
             return new WP_Error('json_error', $error_message);
+        }
+
+        // Process and format the results
+        if (!empty($data['results'])) {
+            foreach ($data['results'] as &$product) {
+                // Format prices
+                $product['Price'] = !empty($product['Price']) ? number_format((float)$product['Price'], 2, '.', '') : '0.00';
+                $product['Cost Price'] = !empty($product['Cost Price']) ? number_format((float)$product['Cost Price'], 2, '.', '') : '0.00';
+                $product['RrpPrice'] = !empty($product['RrpPrice']) ? number_format((float)$product['RrpPrice'], 2, '.', '') : $product['Price'];
+
+                // Format status fields
+                $product['DI'] = !empty($product['DI']) && $product['DI'] !== 'No' ? 'Yes' : 'No';
+                $product['au_free_shipping'] = !empty($product['au_free_shipping']) && $product['au_free_shipping'] !== 'No' ? 'Yes' : 'No';
+                $product['new_arrival'] = !empty($product['new_arrival']) && $product['new_arrival'] !== 'No' ? 'Yes' : 'No';
+
+                // Add WooCommerce URL if product is imported
+                if (!empty($product['woo_product_id'])) {
+                    $product['woo_url'] = get_edit_post_link($product['woo_product_id'], '');
+                }
+
+                // Ensure image URL is set
+                $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
+            }
         }
 
         // Add pagination info to the response

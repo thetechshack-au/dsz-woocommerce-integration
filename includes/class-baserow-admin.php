@@ -161,8 +161,6 @@ class Baserow_Admin {
 
     public function get_categories() {
         check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
         nocache_headers();
         
         $categories = $this->api_handler->get_categories();
@@ -177,8 +175,6 @@ class Baserow_Admin {
 
     public function test_baserow_connection() {
         check_ajax_referer('baserow_test_connection', 'nonce');
-        
-        // Set no-cache headers
         nocache_headers();
         
         $result = $this->api_handler->test_connection();
@@ -190,8 +186,6 @@ class Baserow_Admin {
 
     public function search_products() {
         check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
         nocache_headers();
         
         $search_term = sanitize_text_field($_POST['search'] ?? '');
@@ -210,45 +204,22 @@ class Baserow_Admin {
             $table_name = $wpdb->prefix . 'baserow_imported_products';
 
             foreach ($result['results'] as &$product) {
-                // Get WooCommerce product ID from tracking table
+                // Check if product exists in WooCommerce
                 $tracking_data = $wpdb->get_row($wpdb->prepare(
                     "SELECT woo_product_id FROM $table_name WHERE baserow_id = %s",
                     $product['id']
                 ));
 
-                // Check if product exists in WooCommerce
                 $woo_product_id = $tracking_data ? $tracking_data->woo_product_id : null;
                 $woo_product = $woo_product_id ? wc_get_product($woo_product_id) : null;
 
-                // Set import statuses
-                $product['baserow_imported'] = !empty($product['imported_to_woo']);
+                // Update WooCommerce status
                 $product['woo_exists'] = ($woo_product && $woo_product->get_status() !== 'trash');
 
-                if ($product['woo_exists']) {
-                    $product['woo_product_id'] = $woo_product_id;
-                    $product['woo_url'] = get_edit_post_link($woo_product_id, '');
-                } else if ($tracking_data) {
+                if (!$product['woo_exists'] && $tracking_data) {
                     // Clean up stale tracking record
                     $wpdb->delete($table_name, array('baserow_id' => $product['id']));
                 }
-
-                // Get the first image URL
-                $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
-
-                // Format price with $ symbol
-                $product['price'] = !empty($product['Price']) ? number_format((float)$product['Price'], 2, '.', '') : '0.00';
-                
-                // Add cost price if available
-                $product['cost_price'] = !empty($product['Cost Price']) ? number_format((float)$product['Cost Price'], 2, '.', '') : null;
-
-                // Add Direct Import status
-                $product['DI'] = !empty($product['DI']) ? $product['DI'] : 'No';
-
-                // Add Free Shipping status
-                $product['au_free_shipping'] = !empty($product['au_free_shipping']) ? $product['au_free_shipping'] : 'No';
-
-                // Add New Arrival status
-                $product['new_arrival'] = !empty($product['new_arrival']) ? $product['new_arrival'] : 'No';
             }
         }
 
@@ -257,8 +228,6 @@ class Baserow_Admin {
 
     public function delete_product() {
         check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        // Set no-cache headers
         nocache_headers();
 
         if (!isset($_POST['product_id'])) {
@@ -318,9 +287,7 @@ class Baserow_Admin {
 
     public function import_product() {
         try {
-            // Set no-cache headers
             nocache_headers();
-            
             Baserow_Logger::info("Import product AJAX handler started");
 
             $this->validate_import_request();

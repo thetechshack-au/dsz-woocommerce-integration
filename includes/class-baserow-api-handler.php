@@ -18,57 +18,91 @@ class Baserow_API_Handler {
     public function get_categories() {
         Baserow_Logger::info("Fetching unique categories");
 
+        // Try to get cached categories first
+        $cached_categories = get_transient('baserow_categories');
+        if ($cached_categories !== false) {
+            Baserow_Logger::debug("Returning cached categories");
+            return $cached_categories;
+        }
+
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
             Baserow_Logger::error("API configuration missing");
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request only the Category field to minimize data transfer
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category";
-        
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
-                'Content-Type' => 'application/json'
-            ),
-            'timeout' => 30
-        ));
-
-        if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed: {$error_message}");
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status_code !== 200) {
-            $error_message = "API returned status code {$status_code}";
-            Baserow_Logger::error($error_message);
-            return new WP_Error('api_error', $error_message);
-        }
-
-        $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = "Failed to parse JSON response: " . json_last_error_msg();
-            Baserow_Logger::error($error_message);
-            return new WP_Error('json_error', $error_message);
-        }
-
-        // Extract unique categories
         $categories = array();
-        if (!empty($data['results'])) {
-            foreach ($data['results'] as $product) {
-                if (!empty($product['Category']) && !in_array($product['Category'], $categories)) {
-                    $categories[] = $product['Category'];
+        $page = 1;
+        $has_more = true;
+
+        while ($has_more) {
+            // Request only the Category field to minimize data transfer
+            $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&page={$page}&size=100";
+            
+            $response = wp_remote_get($url, array(
+                'headers' => array(
+                    'Authorization' => 'Token ' . $this->api_token,
+                    'Content-Type' => 'application/json'
+                ),
+                'timeout' => 30
+            ));
+
+            if (is_wp_error($response)) {
+                $error_message = $response->get_error_message();
+                Baserow_Logger::error("API request failed: {$error_message}");
+                return new WP_Error('api_error', $error_message);
+            }
+
+            $status_code = wp_remote_retrieve_response_code($response);
+            $body = wp_remote_retrieve_body($response);
+
+            if ($status_code !== 200) {
+                $error_message = "API returned status code {$status_code}";
+                Baserow_Logger::error($error_message);
+                return new WP_Error('api_error', $error_message);
+            }
+
+            $data = json_decode($body, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $error_message = "Failed to parse JSON response: " . json_last_error_msg();
+                Baserow_Logger::error($error_message);
+                return new WP_Error('json_error', $error_message);
+            }
+
+            // Process categories from this page
+            if (!empty($data['results'])) {
+                foreach ($data['results'] as $product) {
+                    if (!empty($product['Category'])) {
+                        // Split category path and add each level
+                        $category_path = explode(' > ', $product['Category']);
+                        $current_path = '';
+                        
+                        foreach ($category_path as $level) {
+                            $current_path = $current_path ? $current_path . ' > ' . $level : $level;
+                            if (!in_array($current_path, $categories)) {
+                                $categories[] = $current_path;
+                            }
+                        }
+                    }
                 }
             }
-            sort($categories); // Sort alphabetically
+
+            // Check if there are more pages
+            $total_pages = ceil($data['count'] / 100);
+            $has_more = $page < $total_pages;
+            $page++;
+
+            // Log progress
+            Baserow_Logger::debug("Processed page {$page} of {$total_pages}");
         }
 
-        Baserow_Logger::info("Successfully retrieved categories");
+        // Sort categories
+        sort($categories);
+
+        // Cache the results for 1 hour
+        set_transient('baserow_categories', $categories, HOUR_IN_SECONDS);
+
+        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
         return $categories;
     }
 
@@ -200,6 +234,9 @@ class Baserow_API_Handler {
             return new WP_Error('update_verification_failed', $error_message);
         }
 
+        // Clear categories cache after update
+        delete_transient('baserow_categories');
+
         Baserow_Logger::info("Successfully updated product in Baserow");
         return $updated_data;
     }
@@ -220,13 +257,13 @@ class Baserow_API_Handler {
             'Category',
             'Price',
             'Cost Price',
-            'RrpPrice',  // Added RrpPrice field
+            'RrpPrice',
             'Image 1',
             'DI',
             'au_free_shipping',
             'new_arrival',
             'imported_to_woo',
-            'woo_product_id'  // Added woo_product_id field
+            'woo_product_id'
         );
 
         // Build base URL with essential parameters
@@ -238,7 +275,7 @@ class Baserow_API_Handler {
             'size' => $this->per_page,
             'page' => max(1, intval($page)),
             'fields' => implode(',', $required_fields),
-            'order_by' => 'Title'  // Default sorting by title
+            'order_by' => 'Title'
         );
 
         // Add search filters

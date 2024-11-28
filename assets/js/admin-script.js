@@ -7,6 +7,8 @@ jQuery(document).ready(function($) {
     var paginationContainer = $('.baserow-pagination');
     var currentPage = 1;
     var totalPages = 1;
+    var categoryLoadRetries = 0;
+    var maxRetries = 3;
 
     function showLoading() {
         loadingOverlay.show();
@@ -38,8 +40,13 @@ jQuery(document).ready(function($) {
         }
     }
 
-    function loadCategories() {
-        console.log('Loading categories...');
+    function loadCategories(isRetry = false) {
+        console.log('Loading categories... Attempt:', categoryLoadRetries + 1);
+        
+        if (!isRetry) {
+            categoryLoadRetries = 0;
+        }
+
         return $.ajax({
             url: baserowImporter.ajax_url,
             type: 'POST',
@@ -47,6 +54,7 @@ jQuery(document).ready(function($) {
                 action: 'get_categories',
                 nonce: baserowImporter.nonce
             },
+            timeout: 30000, // 30 second timeout
             success: function(response) {
                 console.log('Categories response:', response);
                 if (response.success && response.data && response.data.categories) {
@@ -68,12 +76,83 @@ jQuery(document).ready(function($) {
                     }
                     
                     console.log('Category dropdown updated. Current value:', categoryFilter.val());
+                    categoryLoadRetries = 0; // Reset retry counter on success
                 } else {
                     console.error('Invalid categories response:', response);
+                    handleCategoryError(response.data ? response.data.message : 'Failed to load categories');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Categories AJAX error:', status, error);
+                handleCategoryError(status === 'timeout' ? baserowImporter.timeout_error : baserowImporter.network_error);
+            }
+        });
+    }
+
+    function handleCategoryError(message) {
+        categoryLoadRetries++;
+        console.log('Category load failed. Attempt:', categoryLoadRetries);
+        
+        if (categoryLoadRetries < maxRetries) {
+            console.log('Retrying category load...');
+            setTimeout(function() {
+                loadCategories(true);
+            }, categoryLoadRetries * 2000); // Exponential backoff
+        } else {
+            console.error('Max retries reached for category loading');
+            // Show error but don't disable functionality
+            var errorHtml = '<div class="notice notice-error inline"><p>' + message + '</p></div>';
+            categoryFilter.before(errorHtml);
+        }
+    }
+
+    function searchProducts(page, isRetry = false) {
+        showLoading();
+        currentPage = page || 1;
+        
+        console.log('Searching products - Page:', currentPage, 'Category:', categoryFilter.val());
+        
+        $.ajax({
+            url: baserowImporter.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'search_products',
+                nonce: baserowImporter.nonce,
+                search: searchInput.val(),
+                category: categoryFilter.val(),
+                page: currentPage
+            },
+            timeout: 30000, // 30 second timeout
+            cache: false,
+            success: function(response) {
+                console.log('Search response:', response);
+                hideLoading();
+                if (response.success) {
+                    if (!response.data.results || response.data.results.length === 0) {
+                        productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
+                        return;
+                    }
+                    renderProducts(response.data.results);
+                    if (response.data.pagination) {
+                        totalPages = parseInt(response.data.pagination.total_pages);
+                        currentPage = parseInt(response.data.pagination.current_page);
+                        updatePaginationControls();
+                    }
+                } else {
+                    handleError(response.data.message || 'Failed to fetch products');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Search AJAX error:', status, error);
+                if (status === 'timeout' && !isRetry) {
+                    // Retry once on timeout
+                    console.log('Search timed out, retrying...');
+                    setTimeout(function() {
+                        searchProducts(page, true);
+                    }, 2000);
+                } else {
+                    handleError(status === 'timeout' ? baserowImporter.timeout_error : baserowImporter.network_error);
+                }
             }
         });
     }
@@ -224,44 +303,6 @@ jQuery(document).ready(function($) {
         });
     }
 
-    function searchProducts(page) {
-        showLoading();
-        currentPage = page || 1;
-        
-        console.log('Searching products - Page:', currentPage, 'Category:', categoryFilter.val());
-        
-        $.ajax({
-            url: baserowImporter.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'search_products',
-                nonce: baserowImporter.nonce,
-                search: searchInput.val(),
-                category: categoryFilter.val(),
-                page: currentPage
-            },
-            cache: false,
-            success: function(response) {
-                console.log('Search response:', response);
-                hideLoading();
-                if (response.success) {
-                    renderProducts(response.data.results);
-                    if (response.data.pagination) {
-                        totalPages = parseInt(response.data.pagination.total_pages);
-                        currentPage = parseInt(response.data.pagination.current_page);
-                        updatePaginationControls();
-                    }
-                } else {
-                    handleError(response.data.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Search AJAX error:', status, error);
-                handleError('Failed to fetch products. Please try again.');
-            }
-        });
-    }
-
     function importProduct(productId) {
         showLoading();
         $.ajax({
@@ -362,6 +403,15 @@ jQuery(document).ready(function($) {
     loadCategories();
     searchProducts(1);
 
-    // Refresh categories periodically
-    setInterval(loadCategories, 30000);
+    // Refresh categories periodically with exponential backoff
+    var refreshInterval = 30000; // Start with 30 seconds
+    function scheduleRefresh() {
+        setTimeout(function() {
+            loadCategories().always(function() {
+                refreshInterval = Math.min(refreshInterval * 1.5, 300000); // Max 5 minutes
+                scheduleRefresh();
+            });
+        }, refreshInterval);
+    }
+    scheduleRefresh();
 });

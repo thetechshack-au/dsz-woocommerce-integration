@@ -16,15 +16,15 @@ class Baserow_API_Handler {
     }
 
     public function get_categories() {
-        Baserow_Logger::info("Fetching unique categories");
+        Baserow_Logger::info("Fetching all categories across all pages");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
             Baserow_Logger::error("API configuration missing");
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request with a larger size parameter and no field restriction
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
+        // Get first page to determine total pages
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100&page=1";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -35,30 +35,24 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed: {$error_message}");
-            return new WP_Error('api_error', $error_message);
+            Baserow_Logger::error("Initial API request failed: " . $response->get_error_message());
+            return new WP_Error('api_error', $response->get_error_message());
         }
 
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status_code !== 200) {
-            $error_message = "API returned status code {$status_code}";
-            Baserow_Logger::error($error_message);
-            return new WP_Error('api_error', $error_message);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (!$data || !isset($data['count'])) {
+            Baserow_Logger::error("Invalid API response");
+            return new WP_Error('api_error', 'Invalid API response');
         }
 
-        $data = json_decode($body, true);
+        $total_records = $data['count'];
+        $total_pages = ceil($total_records / 100);
+        Baserow_Logger::info("Found {$total_records} total records across {$total_pages} pages");
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = "Failed to parse JSON response: " . json_last_error_msg();
-            Baserow_Logger::error($error_message);
-            return new WP_Error('json_error', $error_message);
-        }
-
-        // Extract unique categories
+        // Collect categories from all pages
         $categories = array();
+        
+        // Process first page results
         if (!empty($data['results'])) {
             foreach ($data['results'] as $product) {
                 if (!empty($product['Category'])) {
@@ -68,10 +62,39 @@ class Baserow_API_Handler {
                     }
                 }
             }
-            sort($categories); // Sort alphabetically
         }
 
-        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
+        // Fetch remaining pages
+        for ($page = 2; $page <= $total_pages; $page++) {
+            Baserow_Logger::info("Fetching page {$page} of {$total_pages}");
+            
+            $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100&page={$page}";
+            
+            $response = wp_remote_get($url, array(
+                'headers' => array(
+                    'Authorization' => 'Token ' . $this->api_token,
+                    'Content-Type' => 'application/json'
+                ),
+                'timeout' => 30
+            ));
+
+            if (!is_wp_error($response)) {
+                $data = json_decode(wp_remote_retrieve_body($response), true);
+                if (!empty($data['results'])) {
+                    foreach ($data['results'] as $product) {
+                        if (!empty($product['Category'])) {
+                            $category = trim($product['Category']);
+                            if (!in_array($category, $categories)) {
+                                $categories[] = $category;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        sort($categories); // Sort alphabetically
+        Baserow_Logger::info("Successfully retrieved " . count($categories) . " unique categories");
         return $categories;
     }
 

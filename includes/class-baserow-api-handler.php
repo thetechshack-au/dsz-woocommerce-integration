@@ -20,6 +20,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
+        // Use larger page size that was working before
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
         $response = wp_remote_get($url, array(
@@ -164,8 +165,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Changed from 'equal' to 'contains' for exact category match
-            $url .= '&filter__field_Category__contains=' . urlencode($category);
+            // Try exact match with the category field
+            $url .= '&filter__Category__exact=' . urlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 

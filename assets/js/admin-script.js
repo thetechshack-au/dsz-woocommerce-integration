@@ -1,4 +1,11 @@
 jQuery(document).ready(function($) {
+    // Show instructions for debugging
+    console.log('=== DEBUGGING INSTRUCTIONS ===');
+    console.log('1. You should see category data when the page loads');
+    console.log('2. When you select a category, you should see the search response');
+    console.log('3. You should then see the HTML being generated');
+    console.log('================================');
+
     var loadingOverlay = $('#loading-overlay');
     var productsGrid = $('#baserow-products-grid');
     var searchInput = $('#baserow-search');
@@ -39,6 +46,7 @@ jQuery(document).ready(function($) {
     }
 
     function loadCategories() {
+        console.log('=== LOADING CATEGORIES ===');
         return $.ajax({
             url: baserowImporter.ajax_url,
             type: 'POST',
@@ -47,9 +55,12 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
-                console.log('Categories response:', response);
+                console.log('Categories loaded:', response);
                 if (response.success && response.data.categories) {
                     var categories = response.data.categories;
+                    console.log('Number of categories:', categories.length);
+                    console.log('Categories:', categories);
+
                     var currentCategory = categoryFilter.val();
                     categoryFilter.find('option:not(:first)').remove();
                     categories.forEach(function(category) {
@@ -67,8 +78,11 @@ jQuery(document).ready(function($) {
     }
 
     function renderProducts(products) {
-        console.log('Rendering products:', products);
+        console.log('=== RENDERING PRODUCTS ===');
+        console.log('Products to render:', products);
+
         if (!products || products.length === 0) {
+            console.log('No products to display');
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
             return;
         }
@@ -151,7 +165,7 @@ jQuery(document).ready(function($) {
         });
 
         html += '</tbody></table>';
-        console.log('Setting HTML:', html);
+        console.log('Setting HTML for products grid');
         productsGrid.html(html);
 
         initBulkSelectionHandlers();
@@ -215,6 +229,11 @@ jQuery(document).ready(function($) {
     }
 
     function searchProducts(page) {
+        console.log('=== SEARCHING PRODUCTS ===');
+        console.log('Category:', categoryFilter.val());
+        console.log('Search term:', searchInput.val());
+        console.log('Page:', page);
+
         showLoading();
         currentPage = page || 1;
         
@@ -233,6 +252,7 @@ jQuery(document).ready(function($) {
                 console.log('Search response:', response);
                 hideLoading();
                 if (response.success) {
+                    console.log('Found products:', response.data.results);
                     renderProducts(response.data.results);
                     if (response.data.pagination) {
                         totalPages = parseInt(response.data.pagination.total_pages);
@@ -243,7 +263,8 @@ jQuery(document).ready(function($) {
                     handleError(response.data.message);
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('Search failed:', error);
                 handleError('Failed to fetch products. Please try again.');
             }
         });
@@ -317,6 +338,7 @@ jQuery(document).ready(function($) {
     });
 
     categoryFilter.on('change', function() {
+        console.log('Category selected:', $(this).val());
         searchProducts(1);
     });
 

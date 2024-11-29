@@ -20,7 +20,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Use same URL structure as search_products
+        // Use the same URL structure as search_products
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page=1";
         
         $response = wp_remote_get($url, array(

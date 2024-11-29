@@ -1,11 +1,4 @@
 jQuery(document).ready(function($) {
-    // Show instructions for debugging
-    console.log('=== DEBUGGING INSTRUCTIONS ===');
-    console.log('1. You should see category data when the page loads');
-    console.log('2. When you select a category, you should see the search response');
-    console.log('3. You should then see the HTML being generated');
-    console.log('================================');
-
     var loadingOverlay = $('#loading-overlay');
     var productsGrid = $('#baserow-products-grid');
     var searchInput = $('#baserow-search');
@@ -14,6 +7,13 @@ jQuery(document).ready(function($) {
     var paginationContainer = $('.baserow-pagination');
     var currentPage = 1;
     var totalPages = 1;
+
+    // Debug info
+    console.log('DOM Elements:');
+    console.log('Products Grid:', productsGrid.length ? 'Found' : 'Not found');
+    console.log('Category Filter:', categoryFilter.length ? 'Found' : 'Not found');
+    console.log('Search Input:', searchInput.length ? 'Found' : 'Not found');
+    console.log('Search Button:', searchButton.length ? 'Found' : 'Not found');
 
     function showLoading() {
         loadingOverlay.show();
@@ -25,6 +25,7 @@ jQuery(document).ready(function($) {
 
     function handleError(message) {
         hideLoading();
+        console.error('Error:', message);
         productsGrid.html('<div class="notice notice-error"><p>' + message + '</p></div>');
     }
 
@@ -46,7 +47,7 @@ jQuery(document).ready(function($) {
     }
 
     function loadCategories() {
-        console.log('=== LOADING CATEGORIES ===');
+        console.log('Loading categories...');
         return $.ajax({
             url: baserowImporter.ajax_url,
             type: 'POST',
@@ -55,7 +56,7 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
-                console.log('Categories loaded:', response);
+                console.log('Categories response:', response);
                 if (response.success && response.data.categories) {
                     var categories = response.data.categories;
                     console.log('Number of categories:', categories.length);
@@ -73,14 +74,15 @@ jQuery(document).ready(function($) {
                         categoryFilter.val(currentCategory);
                     }
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load categories:', error);
             }
         });
     }
 
     function renderProducts(products) {
-        console.log('=== RENDERING PRODUCTS ===');
-        console.log('Products to render:', products);
-
+        console.log('Rendering products:', products);
         if (!products || products.length === 0) {
             console.log('No products to display');
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
@@ -106,6 +108,7 @@ jQuery(document).ready(function($) {
             '</tr></thead><tbody>';
 
         products.forEach(function(product) {
+            console.log('Processing product:', product);
             var imageUrl = product.image_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
             
             html += '<tr>';
@@ -117,16 +120,16 @@ jQuery(document).ready(function($) {
             
             // Image
             html += '<td class="product-image-cell">' +
-                   '<img src="' + imageUrl + '" alt="' + product.Title + '"></td>';
+                   '<img src="' + imageUrl + '" alt="' + (product.Title || '') + '"></td>';
             
             // Title
-            html += '<td>' + product.Title + '</td>';
+            html += '<td>' + (product.Title || '') + '</td>';
             
             // SKU
-            html += '<td>' + product.SKU + '</td>';
+            html += '<td>' + (product.SKU || '') + '</td>';
             
             // Category
-            html += '<td>' + product.Category + '</td>';
+            html += '<td>' + (product.Category || '') + '</td>';
             
             // Cost Price
             html += '<td class="cost-price-col">$' + (product.cost_price || '0.00') + '</td>';
@@ -165,8 +168,26 @@ jQuery(document).ready(function($) {
         });
 
         html += '</tbody></table>';
-        console.log('Setting HTML for products grid');
-        productsGrid.html(html);
+        console.log('Setting HTML:', html.substring(0, 500) + '...');
+        
+        // Try-catch for error handling
+        try {
+            productsGrid.html(html);
+            console.log('HTML set successfully');
+            
+            // Check if table is visible
+            var table = productsGrid.find('.products-table');
+            console.log('Table visibility:', {
+                exists: table.length > 0,
+                display: table.css('display'),
+                visibility: table.css('visibility'),
+                height: table.height(),
+                width: table.width()
+            });
+        } catch (error) {
+            console.error('Error setting HTML:', error);
+            handleError('Failed to render products: ' + error.message);
+        }
 
         initBulkSelectionHandlers();
     }
@@ -229,7 +250,7 @@ jQuery(document).ready(function($) {
     }
 
     function searchProducts(page) {
-        console.log('=== SEARCHING PRODUCTS ===');
+        console.log('Searching products...');
         console.log('Category:', categoryFilter.val());
         console.log('Search term:', searchInput.val());
         console.log('Page:', page);

@@ -15,6 +15,16 @@ class Baserow_API_Handler {
         $this->table_id = get_option('baserow_table_id');
     }
 
+    // Temporary function to get API details
+    public function get_api_details() {
+        return array(
+            'api_url' => $this->api_url,
+            'api_token' => $this->api_token,
+            'table_id' => $this->table_id
+        );
+    }
+
+    // Rest of the class remains unchanged...
     public function get_categories() {
         Baserow_Logger::info("Fetching unique categories");
 

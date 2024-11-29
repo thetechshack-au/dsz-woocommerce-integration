@@ -16,6 +16,8 @@ class Baserow_API_Handler {
     }
 
     private function make_api_request($url) {
+        Baserow_Logger::debug("Making API request to: " . $url);
+
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -25,19 +27,24 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
+            Baserow_Logger::error("API request failed: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
+        Baserow_Logger::debug("API Response Status: " . $status_code);
+
         if ($status_code !== 200) {
+            Baserow_Logger::error("API error: Status code " . $status_code);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            Baserow_Logger::error("JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
@@ -45,7 +52,7 @@ class Baserow_API_Handler {
     }
 
     public function get_categories() {
-        Baserow_Logger::info("Fetching unique categories");
+        Baserow_Logger::info("Starting category fetch");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
             Baserow_Logger::error("API configuration missing");
@@ -55,6 +62,7 @@ class Baserow_API_Handler {
         $categories = array();
         $page = 1;
         $has_more = true;
+        $total_rows_processed = 0;
 
         while ($has_more) {
             $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100&page=" . $page;
@@ -62,26 +70,40 @@ class Baserow_API_Handler {
             $data = $this->make_api_request($url);
             
             if (is_wp_error($data)) {
-                Baserow_Logger::error("API request failed on page {$page}: " . $data->get_error_message());
+                Baserow_Logger::error("Failed to fetch page {$page}: " . $data->get_error_message());
                 return $data;
             }
 
+            Baserow_Logger::debug("Page {$page} - Total rows in response: " . count($data['results']));
+            $total_rows_processed += count($data['results']);
+
             if (!empty($data['results'])) {
                 foreach ($data['results'] as $product) {
-                    if (!empty($product['Category']) && !in_array($product['Category'], $categories)) {
-                        $categories[] = $product['Category'];
+                    if (!empty($product['Category'])) {
+                        $category = trim($product['Category']);
+                        if (!in_array($category, $categories)) {
+                            $categories[] = $category;
+                            Baserow_Logger::debug("Found new category: " . $category);
+                        }
                     }
                 }
             }
 
             // Check if there are more pages
             $total_pages = ceil($data['count'] / 100);
+            Baserow_Logger::debug("Total pages: {$total_pages}, Current page: {$page}");
+            
             $has_more = $page < $total_pages;
             $page++;
         }
 
         sort($categories); // Sort alphabetically
-        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
+
+        Baserow_Logger::info("Category fetch complete:");
+        Baserow_Logger::info("- Total rows processed: " . $total_rows_processed);
+        Baserow_Logger::info("- Total unique categories found: " . count($categories));
+        Baserow_Logger::debug("Categories found: " . print_r($categories, true));
+
         return $categories;
     }
 

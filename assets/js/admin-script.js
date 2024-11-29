@@ -47,10 +47,8 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
-                console.log('Categories API Response:', response); // Debug log
                 if (response.success && response.data.categories) {
                     var categories = response.data.categories;
-                    console.log('Found categories:', categories); // Debug log
                     var currentCategory = categoryFilter.val();
                     categoryFilter.find('option:not(:first)').remove();
                     categories.forEach(function(category) {
@@ -59,20 +57,14 @@ jQuery(document).ready(function($) {
                             text: category
                         }));
                     });
-                    console.log('Total categories added to dropdown:', categories.length); // Debug log
                     if (currentCategory) {
                         categoryFilter.val(currentCategory);
                     }
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('Categories API Error:', error); // Debug log
-                console.error('Response:', xhr.responseText); // Debug log
             }
         });
     }
 
-    // Rest of the code remains unchanged...
     function renderProducts(products) {
         if (!products || products.length === 0) {
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');

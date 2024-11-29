@@ -165,19 +165,12 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Create a filter array
-            $filters = array(
-                'filter_type' => 'AND',
-                'filters' => array(
-                    array(
-                        'field' => 'Category',
-                        'type' => 'equal',
-                        'value' => $category
-                    )
-                )
-            );
+            // Use view filter format
+            $url .= '&view_filter_type=AND';
+            $url .= '&view_filters[0][field]=Category';
+            $url .= '&view_filters[0][type]=equal';
+            $url .= '&view_filters[0][value]=' . urlencode($category);
 
-            $url .= '&filters=' . urlencode(json_encode($filters));
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 

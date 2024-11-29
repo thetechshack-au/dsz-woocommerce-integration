@@ -20,7 +20,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Use larger page size that was working before
+        // This URL structure was working to get all 35 categories
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
         $response = wp_remote_get($url, array(
@@ -165,8 +165,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Try exact match with the category field
-            $url .= '&filter__Category__exact=' . urlencode($category);
+            // Using equals filter for exact match
+            $url .= '&filter_type=AND&filter__Category__equals=' . urlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 
@@ -188,6 +188,7 @@ class Baserow_API_Handler {
 
         if ($status_code !== 200) {
             Baserow_Logger::error("Search API status error: " . $status_code);
+            Baserow_Logger::error("Response body: " . $body);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 

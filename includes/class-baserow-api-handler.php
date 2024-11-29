@@ -155,31 +155,43 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Build base URL with page-based pagination
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page={$page}";
-        
+        // Build base URL
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/";
+
+        // Build request body
+        $body = array(
+            'user_field_names' => true,
+            'size' => $this->per_page,
+            'page' => $page
+        );
+
         // Add search parameter if provided
         if (!empty($search_term)) {
-            $url .= '&search=' . urlencode($search_term);
+            $body['search'] = $search_term;
         }
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Use view filter format
-            $url .= '&view_filter_type=AND';
-            $url .= '&view_filters[0][field]=Category';
-            $url .= '&view_filters[0][type]=equal';
-            $url .= '&view_filters[0][value]=' . urlencode($category);
-
-            Baserow_Logger::debug("Search URL with category filter: " . $url);
+            $body['filter_type'] = 'AND';
+            $body['filters'] = array(
+                array(
+                    'field' => 'Category',
+                    'type' => 'equal',
+                    'value' => $category
+                )
+            );
         }
 
-        $response = wp_remote_get($url, array(
+        Baserow_Logger::debug("Search request body: " . print_r($body, true));
+
+        $response = wp_remote_post($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
                 'Content-Type' => 'application/json'
             ),
-            'timeout' => 30
+            'body' => json_encode($body),
+            'timeout' => 30,
+            'data_format' => 'body'
         ));
 
         if (is_wp_error($response)) {
@@ -188,15 +200,15 @@ class Baserow_API_Handler {
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
+        $response_body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
             Baserow_Logger::error("Search API status error: " . $status_code);
-            Baserow_Logger::error("Response body: " . $body);
+            Baserow_Logger::error("Response body: " . $response_body);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
-        $data = json_decode($body, true);
+        $data = json_decode($response_body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             Baserow_Logger::error("Search JSON parse error: " . json_last_error_msg());

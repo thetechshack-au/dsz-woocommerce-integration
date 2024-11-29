@@ -47,6 +47,8 @@ class Baserow_Admin {
     }
 
     public function enqueue_admin_scripts($hook) {
+        Baserow_Logger::debug("Enqueuing scripts for hook: " . $hook);
+
         if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
             return;
         }
@@ -58,19 +60,30 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION
         );
 
+        // Add jQuery as a dependency
         wp_enqueue_script(
             'baserow-importer-js',
             BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/admin-script.js',
             array('jquery'),
-            BASEROW_IMPORTER_VERSION,
+            BASEROW_IMPORTER_VERSION . '.' . time(), // Add timestamp to prevent caching
             true
         );
 
-        wp_localize_script('baserow-importer-js', 'baserowImporter', array(
+        $script_data = array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('baserow_importer_nonce'),
-            'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer')
-        ));
+            'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer'),
+            'debug' => true
+        );
+
+        wp_localize_script('baserow-importer-js', 'baserowImporter', $script_data);
+
+        // Add inline script to check if jQuery and our script loaded
+        wp_add_inline_script('baserow-importer-js', '
+            console.log("jQuery version:", jQuery.fn.jquery);
+            console.log("Baserow Importer script loaded");
+            console.log("Script data:", baserowImporter);
+        ', 'before');
     }
 
     private function check_api_configuration() {

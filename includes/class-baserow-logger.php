@@ -48,6 +48,11 @@ class Baserow_Logger {
             
             // Add log rotation check
             add_action('admin_init', [__CLASS__, 'maybe_rotate_log']);
+
+            // Log API configuration
+            self::debug("API Configuration:");
+            self::debug("API URL: " . get_option('baserow_api_url'));
+            self::debug("Table ID: " . get_option('baserow_table_id'));
             
             self::$init_complete = true;
         } catch (Exception $e) {

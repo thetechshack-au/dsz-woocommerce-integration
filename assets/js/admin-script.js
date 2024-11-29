@@ -47,6 +47,7 @@ jQuery(document).ready(function($) {
                 nonce: baserowImporter.nonce
             },
             success: function(response) {
+                console.log('Categories response:', response);
                 if (response.success && response.data.categories) {
                     var categories = response.data.categories;
                     var currentCategory = categoryFilter.val();
@@ -66,6 +67,7 @@ jQuery(document).ready(function($) {
     }
 
     function renderProducts(products) {
+        console.log('Rendering products:', products);
         if (!products || products.length === 0) {
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
             return;
@@ -149,6 +151,7 @@ jQuery(document).ready(function($) {
         });
 
         html += '</tbody></table>';
+        console.log('Setting HTML:', html);
         productsGrid.html(html);
 
         initBulkSelectionHandlers();
@@ -227,6 +230,7 @@ jQuery(document).ready(function($) {
             },
             cache: false,
             success: function(response) {
+                console.log('Search response:', response);
                 hideLoading();
                 if (response.success) {
                     renderProducts(response.data.results);

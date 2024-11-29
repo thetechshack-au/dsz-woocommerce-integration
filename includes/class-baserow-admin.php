@@ -125,20 +125,6 @@ class Baserow_Admin {
                 </div>
             </div>
         </div>
-
-        <script type="text/javascript">
-            console.log('Debug script loaded');
-            console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document).ready(function($) {
-                    console.log('DOM ready');
-                    var controls = $('.baserow-search-controls');
-                    console.log('Controls found:', controls.length);
-                    console.log('AJAX URL:', controls.data('ajax-url'));
-                    console.log('Nonce:', controls.data('nonce'));
-                });
-            }
-        </script>
         <?php
     }
 
@@ -195,6 +181,8 @@ class Baserow_Admin {
         $search_term = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
         $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
+
+        Baserow_Logger::debug("Search request - term: " . $search_term . ", category: " . $category . ", page: " . $page);
         
         $result = $this->api_handler->search_products($search_term, $category, $page);
         
@@ -235,6 +223,7 @@ class Baserow_Admin {
             }
         }
 
+        Baserow_Logger::debug("Search response - count: " . count($result['results']));
         wp_send_json_success($result);
     }
 

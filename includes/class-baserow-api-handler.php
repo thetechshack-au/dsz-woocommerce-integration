@@ -165,8 +165,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Try contains filter with exact category
-            $url .= '&filter=Category&filter_type=contains&filter_value=' . urlencode($category);
+            // Try simple contains filter
+            $url .= '&filter__Category__contains=' . urlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 

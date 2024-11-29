@@ -23,8 +23,8 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request with size parameter to get all categories
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&size=100";
+        // Request all rows to get complete category data
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -68,7 +68,7 @@ class Baserow_API_Handler {
             sort($categories); // Sort alphabetically
         }
 
-        Baserow_Logger::info("Successfully retrieved categories");
+        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
         return $categories;
     }
 

@@ -23,24 +23,6 @@ class Baserow_Admin {
         add_action('wp_ajax_delete_product', array($this, 'delete_product'));
         add_action('wp_ajax_get_categories', array($this, 'get_categories'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('admin_footer', array($this, 'add_debug_script'));
-    }
-
-    public function add_debug_script() {
-        ?>
-        <script type="text/javascript">
-            console.log('Debug script loaded');
-            console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
-            console.log('baserowImporter:', typeof baserowImporter !== 'undefined' ? 'Loaded' : 'Not loaded');
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document).ready(function($) {
-                    console.log('DOM ready');
-                    console.log('Products grid:', $('#baserow-products-grid').length);
-                    console.log('Category filter:', $('#baserow-category-filter').length);
-                });
-            }
-        </script>
-        <?php
     }
 
     public function add_admin_menu() {
@@ -76,7 +58,8 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION
         );
 
-        wp_enqueue_script(
+        // First, localize the script data
+        wp_register_script(
             'baserow-importer-js',
             BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/admin-script.js',
             array('jquery'),
@@ -89,6 +72,27 @@ class Baserow_Admin {
             'nonce' => wp_create_nonce('baserow_importer_nonce'),
             'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer')
         ));
+
+        // Then enqueue the script
+        wp_enqueue_script('baserow-importer-js');
+
+        // Add debug script
+        add_action('admin_footer', function() {
+            ?>
+            <script type="text/javascript">
+                console.log('Debug script loaded');
+                console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
+                console.log('baserowImporter:', typeof baserowImporter !== 'undefined' ? 'Loaded' : 'Not loaded');
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(document).ready(function($) {
+                        console.log('DOM ready');
+                        console.log('Products grid:', $('#baserow-products-grid').length);
+                        console.log('Category filter:', $('#baserow-category-filter').length);
+                    });
+                }
+            </script>
+            <?php
+        });
     }
 
     private function check_api_configuration() {

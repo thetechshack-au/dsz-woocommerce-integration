@@ -16,24 +16,16 @@ class Baserow_API_Handler {
     }
 
     public function get_categories() {
-        Baserow_Logger::info("Starting category fetch");
+        Baserow_Logger::info("Fetching unique categories");
 
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
             Baserow_Logger::error("API configuration missing");
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Log configuration details
-        Baserow_Logger::debug("API Configuration:");
-        Baserow_Logger::debug("API URL: " . $this->api_url);
-        Baserow_Logger::debug("Table ID: " . $this->table_id);
-        Baserow_Logger::debug("Token present: " . (!empty($this->api_token) ? 'Yes' : 'No'));
-
-        // Simple request to get all rows
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true";
+        // Request with a larger size parameter and no field restriction
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
         
-        Baserow_Logger::debug("Making API request to: " . $url);
-
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -44,15 +36,12 @@ class Baserow_API_Handler {
 
         if (is_wp_error($response)) {
             $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed: " . $error_message);
+            Baserow_Logger::error("API request failed: {$error_message}");
             return new WP_Error('api_error', $error_message);
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
-
-        Baserow_Logger::debug("API Response Status: " . $status_code);
-        Baserow_Logger::debug("API Response Body (first 500 chars): " . substr($body, 0, 500));
 
         if ($status_code !== 200) {
             $error_message = "API returned status code {$status_code}";
@@ -68,10 +57,6 @@ class Baserow_API_Handler {
             return new WP_Error('json_error', $error_message);
         }
 
-        // Log response data
-        Baserow_Logger::debug("Total rows in response: " . (isset($data['count']) ? $data['count'] : 'unknown'));
-        Baserow_Logger::debug("Results count: " . (isset($data['results']) ? count($data['results']) : 0));
-
         // Extract unique categories
         $categories = array();
         if (!empty($data['results'])) {
@@ -80,14 +65,13 @@ class Baserow_API_Handler {
                     $category = trim($product['Category']);
                     if (!in_array($category, $categories)) {
                         $categories[] = $category;
-                        Baserow_Logger::debug("Found category: " . $category);
                     }
                 }
             }
             sort($categories); // Sort alphabetically
         }
 
-        Baserow_Logger::info("Found " . count($categories) . " unique categories");
+        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
         return $categories;
     }
 

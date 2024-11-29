@@ -23,8 +23,8 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request only the Category field to minimize data transfer
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category";
+        // Request with size parameter to get all categories
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&fields=Category&size=100";
         
         $response = wp_remote_get($url, array(
             'headers' => array(

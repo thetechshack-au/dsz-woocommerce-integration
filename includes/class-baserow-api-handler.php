@@ -20,9 +20,11 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Use the same URL structure as search_products
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page=1";
+        // Request with a larger size parameter
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
+        Baserow_Logger::debug("Making category request to: " . $url);
+
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -32,35 +34,49 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
+            Baserow_Logger::error("API request failed: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
+        Baserow_Logger::debug("API Response Status: " . $status_code);
+        Baserow_Logger::debug("API Response Body (first 1000 chars): " . substr($body, 0, 1000));
+
         if ($status_code !== 200) {
+            Baserow_Logger::error("API error: Status code " . $status_code);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            Baserow_Logger::error("JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
+
+        Baserow_Logger::debug("Total records in response: " . (isset($data['count']) ? $data['count'] : 'unknown'));
+        Baserow_Logger::debug("Number of results: " . (isset($data['results']) ? count($data['results']) : 0));
 
         // Extract unique categories
         $categories = array();
         if (!empty($data['results'])) {
             foreach ($data['results'] as $product) {
+                Baserow_Logger::debug("Processing product: " . print_r($product, true));
                 if (!empty($product['Category'])) {
                     $category = trim($product['Category']);
                     if (!in_array($category, $categories)) {
                         $categories[] = $category;
+                        Baserow_Logger::debug("Added category: " . $category);
                     }
                 }
             }
             sort($categories);
         }
+
+        Baserow_Logger::info("Found " . count($categories) . " unique categories");
+        Baserow_Logger::debug("Categories: " . print_r($categories, true));
 
         return $categories;
     }

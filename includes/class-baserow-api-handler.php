@@ -16,15 +16,12 @@ class Baserow_API_Handler {
     }
 
     public function get_categories() {
-        Baserow_Logger::info("Fetching unique categories");
-
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            Baserow_Logger::error("API configuration missing");
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Request with a larger size parameter
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
+        // Use same URL structure as search_products
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page=1";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -35,26 +32,20 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            $error_message = $response->get_error_message();
-            Baserow_Logger::error("API request failed: {$error_message}");
-            return new WP_Error('api_error', $error_message);
+            return new WP_Error('api_error', $response->get_error_message());
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
-            $error_message = "API returned status code {$status_code}";
-            Baserow_Logger::error($error_message);
-            return new WP_Error('api_error', $error_message);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $error_message = "Failed to parse JSON response: " . json_last_error_msg();
-            Baserow_Logger::error($error_message);
-            return new WP_Error('json_error', $error_message);
+            return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
         // Extract unique categories
@@ -68,43 +59,9 @@ class Baserow_API_Handler {
                     }
                 }
             }
-            sort($categories); // Sort alphabetically
+            sort($categories);
         }
 
-        // If we have a count and there are more pages
-        if (isset($data['count']) && $data['count'] > 100) {
-            $total_pages = ceil($data['count'] / 100);
-            
-            // Fetch remaining pages
-            for ($page = 2; $page <= $total_pages; $page++) {
-                $page_url = $url . "&page=" . $page;
-                
-                $page_response = wp_remote_get($page_url, array(
-                    'headers' => array(
-                        'Authorization' => 'Token ' . $this->api_token,
-                        'Content-Type' => 'application/json'
-                    ),
-                    'timeout' => 30
-                ));
-
-                if (!is_wp_error($page_response)) {
-                    $page_data = json_decode(wp_remote_retrieve_body($page_response), true);
-                    if (!empty($page_data['results'])) {
-                        foreach ($page_data['results'] as $product) {
-                            if (!empty($product['Category'])) {
-                                $category = trim($product['Category']);
-                                if (!in_array($category, $categories)) {
-                                    $categories[] = $category;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            sort($categories); // Sort again after adding new categories
-        }
-
-        Baserow_Logger::info("Successfully retrieved " . count($categories) . " categories");
         return $categories;
     }
 

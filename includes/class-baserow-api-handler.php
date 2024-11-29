@@ -20,7 +20,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // This URL structure was working to get all 35 categories
+        // Original URL that was getting all 35 categories
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
         $response = wp_remote_get($url, array(
@@ -165,8 +165,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Using equals filter for exact match
-            $url .= '&filter_type=AND&filter__Category__equals=' . urlencode($category);
+            // Try 'equal' filter type instead of 'equals'
+            $url .= '&filter_type=AND&filter__Category__equal=' . urlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 

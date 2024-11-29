@@ -165,8 +165,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Use exact match for category
-            $url .= '&filter=Category&filter_type=equal&filter_value=' . urlencode($category);
+            // Try Baserow's view filter format
+            $url .= '&filter__field_Category__equal=' . urlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 
@@ -201,6 +201,7 @@ class Baserow_API_Handler {
 
         if (!empty($category)) {
             Baserow_Logger::debug("Search results for category '" . $category . "': " . count($data['results']) . " products found");
+            Baserow_Logger::debug("First product in results: " . print_r($data['results'][0], true));
         }
 
         // Add pagination info to the response

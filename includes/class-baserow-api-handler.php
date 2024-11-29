@@ -20,8 +20,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Get first page with large size
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200&page=1";
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
         $response = wp_remote_get($url, array(
             'headers' => array(
@@ -35,12 +34,19 @@ class Baserow_API_Handler {
             return new WP_Error('api_error', $response->get_error_message());
         }
 
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (!$data || !isset($data['count'])) {
-            return new WP_Error('api_error', 'Invalid API response');
+        $status_code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+
+        if ($status_code !== 200) {
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
-        // Extract categories from first page
+        $data = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error('json_error', "Failed to parse JSON response");
+        }
+
         $categories = array();
         if (!empty($data['results'])) {
             foreach ($data['results'] as $product) {
@@ -51,40 +57,9 @@ class Baserow_API_Handler {
                     }
                 }
             }
+            sort($categories);
         }
 
-        // Calculate total pages and fetch remaining pages if needed
-        $total_records = $data['count'];
-        $total_pages = ceil($total_records / 200);
-
-        // Fetch remaining pages
-        for ($page = 2; $page <= $total_pages; $page++) {
-            $page_url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200&page=" . $page;
-            
-            $page_response = wp_remote_get($page_url, array(
-                'headers' => array(
-                    'Authorization' => 'Token ' . $this->api_token,
-                    'Content-Type' => 'application/json'
-                ),
-                'timeout' => 30
-            ));
-
-            if (!is_wp_error($page_response)) {
-                $page_data = json_decode(wp_remote_retrieve_body($page_response), true);
-                if (!empty($page_data['results'])) {
-                    foreach ($page_data['results'] as $product) {
-                        if (!empty($product['Category'])) {
-                            $category = trim($product['Category']);
-                            if (!in_array($category, $categories)) {
-                                $categories[] = $category;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        sort($categories);
         return $categories;
     }
 
@@ -189,7 +164,9 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            $url .= '&filter__Category__equal=' . urlencode($category);
+            // Changed from 'equal' to 'contains' for exact category match
+            $url .= '&filter__field_Category__contains=' . urlencode($category);
+            Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 
         $response = wp_remote_get($url, array(
@@ -201,6 +178,7 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
+            Baserow_Logger::error("Search API error: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
@@ -208,13 +186,19 @@ class Baserow_API_Handler {
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
+            Baserow_Logger::error("Search API status error: " . $status_code);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            Baserow_Logger::error("Search JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
+        }
+
+        if (!empty($category)) {
+            Baserow_Logger::debug("Search results for category '" . $category . "': " . count($data['results']) . " products found");
         }
 
         // Add pagination info to the response

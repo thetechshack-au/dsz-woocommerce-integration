@@ -8,12 +8,14 @@ jQuery(document).ready(function($) {
     var currentPage = 1;
     var totalPages = 1;
 
-    // Debug info
-    console.log('DOM Elements:');
-    console.log('Products Grid:', productsGrid.length ? 'Found' : 'Not found');
-    console.log('Category Filter:', categoryFilter.length ? 'Found' : 'Not found');
-    console.log('Search Input:', searchInput.length ? 'Found' : 'Not found');
-    console.log('Search Button:', searchButton.length ? 'Found' : 'Not found');
+    // Get AJAX settings from data attributes
+    var controls = $('.baserow-search-controls');
+    var ajaxUrl = controls.data('ajax-url');
+    var nonce = controls.data('nonce');
+
+    console.log('Controls found:', controls.length);
+    console.log('AJAX URL:', ajaxUrl);
+    console.log('Nonce:', nonce);
 
     function showLoading() {
         loadingOverlay.show();
@@ -25,7 +27,6 @@ jQuery(document).ready(function($) {
 
     function handleError(message) {
         hideLoading();
-        console.error('Error:', message);
         productsGrid.html('<div class="notice notice-error"><p>' + message + '</p></div>');
     }
 
@@ -49,11 +50,11 @@ jQuery(document).ready(function($) {
     function loadCategories() {
         console.log('Loading categories...');
         return $.ajax({
-            url: baserowImporter.ajax_url,
+            url: ajaxUrl,
             type: 'POST',
             data: {
                 action: 'get_categories',
-                nonce: baserowImporter.nonce
+                nonce: nonce
             },
             success: function(response) {
                 console.log('Categories response:', response);
@@ -84,7 +85,6 @@ jQuery(document).ready(function($) {
     function renderProducts(products) {
         console.log('Rendering products:', products);
         if (!products || products.length === 0) {
-            console.log('No products to display');
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
             return;
         }
@@ -108,7 +108,6 @@ jQuery(document).ready(function($) {
             '</tr></thead><tbody>';
 
         products.forEach(function(product) {
-            console.log('Processing product:', product);
             var imageUrl = product.image_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
             
             html += '<tr>';
@@ -170,7 +169,6 @@ jQuery(document).ready(function($) {
         html += '</tbody></table>';
         console.log('Setting HTML:', html.substring(0, 500) + '...');
         
-        // Try-catch for error handling
         try {
             productsGrid.html(html);
             console.log('HTML set successfully');
@@ -230,11 +228,11 @@ jQuery(document).ready(function($) {
         var importPromises = productIds.map(function(id) {
             return new Promise(function(resolve) {
                 $.ajax({
-                    url: baserowImporter.ajax_url,
+                    url: ajaxUrl,
                     type: 'POST',
                     data: {
                         action: 'import_product',
-                        nonce: baserowImporter.nonce,
+                        nonce: nonce,
                         product_id: id
                     }
                 }).always(resolve);
@@ -259,11 +257,11 @@ jQuery(document).ready(function($) {
         currentPage = page || 1;
         
         $.ajax({
-            url: baserowImporter.ajax_url,
+            url: ajaxUrl,
             type: 'POST',
             data: {
                 action: 'search_products',
-                nonce: baserowImporter.nonce,
+                nonce: nonce,
                 search: searchInput.val(),
                 category: categoryFilter.val(),
                 page: currentPage
@@ -294,11 +292,11 @@ jQuery(document).ready(function($) {
     function importProduct(productId) {
         showLoading();
         $.ajax({
-            url: baserowImporter.ajax_url,
+            url: ajaxUrl,
             type: 'POST',
             data: {
                 action: 'import_product',
-                nonce: baserowImporter.nonce,
+                nonce: nonce,
                 product_id: productId
             },
             success: function(response) {
@@ -318,17 +316,17 @@ jQuery(document).ready(function($) {
     }
 
     function deleteProduct(productId) {
-        if (!confirm(baserowImporter.confirm_delete)) {
+        if (!confirm('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.')) {
             return;
         }
 
         showLoading();
         $.ajax({
-            url: baserowImporter.ajax_url,
+            url: ajaxUrl,
             type: 'POST',
             data: {
                 action: 'delete_product',
-                nonce: baserowImporter.nonce,
+                nonce: nonce,
                 product_id: productId
             },
             success: function(response) {
@@ -390,7 +388,4 @@ jQuery(document).ready(function($) {
     // Initial load
     loadCategories();
     searchProducts(1);
-
-    // Refresh categories periodically
-    setInterval(loadCategories, 30000);
 });

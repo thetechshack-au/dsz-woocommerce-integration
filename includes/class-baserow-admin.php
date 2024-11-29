@@ -23,28 +23,6 @@ class Baserow_Admin {
         add_action('wp_ajax_delete_product', array($this, 'delete_product'));
         add_action('wp_ajax_get_categories', array($this, 'get_categories'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-        add_action('admin_head', array($this, 'add_script_data'));
-    }
-
-    public function add_script_data() {
-        if (!$this->is_plugin_page()) {
-            return;
-        }
-        ?>
-        <script type="text/javascript">
-            var baserowImporter = {
-                ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                nonce: '<?php echo wp_create_nonce('baserow_importer_nonce'); ?>',
-                confirm_delete: '<?php echo esc_js(__('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer')); ?>',
-                debug: true
-            };
-        </script>
-        <?php
-    }
-
-    private function is_plugin_page() {
-        $screen = get_current_screen();
-        return $screen && ($screen->id === 'toplevel_page_baserow-importer' || $screen->id === 'baserow-importer_page_baserow-importer-settings');
     }
 
     public function add_admin_menu() {
@@ -69,7 +47,7 @@ class Baserow_Admin {
     }
 
     public function enqueue_admin_scripts($hook) {
-        if (!$this->is_plugin_page()) {
+        if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
             return;
         }
 
@@ -87,24 +65,6 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION . '.' . time(),
             true
         );
-
-        // Add debug script
-        add_action('admin_footer', function() {
-            ?>
-            <script type="text/javascript">
-                console.log('Debug script loaded');
-                console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
-                console.log('baserowImporter:', typeof baserowImporter !== 'undefined' ? baserowImporter : 'Not loaded');
-                if (typeof jQuery !== 'undefined') {
-                    jQuery(document).ready(function($) {
-                        console.log('DOM ready');
-                        console.log('Products grid:', $('#baserow-products-grid').length);
-                        console.log('Category filter:', $('#baserow-category-filter').length);
-                    });
-                }
-            </script>
-            <?php
-        });
     }
 
     private function check_api_configuration() {
@@ -122,12 +82,17 @@ class Baserow_Admin {
         }
 
         $this->render_import_results();
+
+        // Create nonce
+        $nonce = wp_create_nonce('baserow_importer_nonce');
         ?>
         <div class="wrap">
             <h1>Baserow Product Importer</h1>
 
             <div class="baserow-search-container">
-                <div class="baserow-search-controls">
+                <div class="baserow-search-controls" 
+                     data-ajax-url="<?php echo esc_attr(admin_url('admin-ajax.php')); ?>"
+                     data-nonce="<?php echo esc_attr($nonce); ?>">
                     <input type="text" id="baserow-search" placeholder="Search products..." class="regular-text">
                     <select id="baserow-category-filter">
                         <option value="">All Categories</option>
@@ -160,6 +125,20 @@ class Baserow_Admin {
                 </div>
             </div>
         </div>
+
+        <script type="text/javascript">
+            console.log('Debug script loaded');
+            console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document).ready(function($) {
+                    console.log('DOM ready');
+                    var controls = $('.baserow-search-controls');
+                    console.log('Controls found:', controls.length);
+                    console.log('AJAX URL:', controls.data('ajax-url'));
+                    console.log('Nonce:', controls.data('nonce'));
+                });
+            }
+        </script>
         <?php
     }
 

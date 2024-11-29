@@ -47,6 +47,8 @@ class Baserow_Admin {
     }
 
     public function enqueue_admin_scripts($hook) {
+        Baserow_Logger::debug("Enqueuing scripts for hook: " . $hook);
+
         if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
             return;
         }
@@ -58,36 +60,62 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION
         );
 
-        // First, localize the script data
+        // Create nonce
+        $nonce = wp_create_nonce('baserow_importer_nonce');
+        Baserow_Logger::debug("Created nonce: " . $nonce);
+
+        // Register script
+        $script_url = BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/admin-script.js';
+        Baserow_Logger::debug("Script URL: " . $script_url);
+
         wp_register_script(
             'baserow-importer-js',
-            BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/admin-script.js',
+            $script_url,
             array('jquery'),
             BASEROW_IMPORTER_VERSION . '.' . time(),
             true
         );
 
+        // Localize script
         wp_localize_script('baserow-importer-js', 'baserowImporter', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('baserow_importer_nonce'),
-            'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer')
+            'nonce' => $nonce,
+            'confirm_delete' => __('Are you sure you want to delete this product? This will remove it from WooCommerce and update Baserow.', 'baserow-importer'),
+            'debug' => true
         ));
 
-        // Then enqueue the script
+        // Enqueue script
         wp_enqueue_script('baserow-importer-js');
 
         // Add debug script
-        add_action('admin_footer', function() {
+        add_action('admin_footer', function() use ($nonce) {
             ?>
             <script type="text/javascript">
                 console.log('Debug script loaded');
                 console.log('jQuery:', typeof jQuery !== 'undefined' ? 'Loaded' : 'Not loaded');
-                console.log('baserowImporter:', typeof baserowImporter !== 'undefined' ? 'Loaded' : 'Not loaded');
+                console.log('baserowImporter:', typeof baserowImporter !== 'undefined' ? baserowImporter : 'Not loaded');
+                console.log('Nonce:', '<?php echo $nonce; ?>');
                 if (typeof jQuery !== 'undefined') {
                     jQuery(document).ready(function($) {
                         console.log('DOM ready');
                         console.log('Products grid:', $('#baserow-products-grid').length);
                         console.log('Category filter:', $('#baserow-category-filter').length);
+                        
+                        // Test AJAX request
+                        $.ajax({
+                            url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                            type: 'POST',
+                            data: {
+                                action: 'get_categories',
+                                nonce: '<?php echo $nonce; ?>'
+                            },
+                            success: function(response) {
+                                console.log('Test AJAX response:', response);
+                            },
+                            error: function(xhr, status, error) {
+                                console.error('Test AJAX error:', error);
+                            }
+                        });
                     });
                 }
             </script>
@@ -248,7 +276,7 @@ class Baserow_Admin {
     }
 
     public function test_baserow_connection() {
-        check_ajax_referer('baserow_test_connection', 'nonce');
+        check_ajax_referer('baserow_importer_nonce', 'nonce');
         
         nocache_headers();
         

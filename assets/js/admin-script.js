@@ -85,6 +85,7 @@ jQuery(document).ready(function($) {
     function renderProducts(products) {
         console.log('Rendering products:', products);
         if (!products || products.length === 0) {
+            console.log('No products to display');
             productsGrid.html('<div class="notice notice-info"><p>No products found.</p></div>');
             return;
         }
@@ -108,6 +109,7 @@ jQuery(document).ready(function($) {
             '</tr></thead><tbody>';
 
         products.forEach(function(product) {
+            console.log('Processing product:', product);
             var imageUrl = product.image_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
             
             html += '<tr>';

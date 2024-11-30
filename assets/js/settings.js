@@ -17,7 +17,11 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     statusSpan.html('<span style="color: #46b450;">✓ ' + response.data + '</span>');
                 } else {
-                    statusSpan.html('<span style="color: #dc3232;">✗ ' + response.data + '</span>');
+                    let errorMsg = response.data;
+                    if (errorMsg.includes('Missing required settings')) {
+                        errorMsg = errorMsg.replace(':', ':\n');
+                    }
+                    statusSpan.html('<span style="color: #dc3232;">✗ ' + errorMsg + '</span>');
                 }
             },
             error: function() {

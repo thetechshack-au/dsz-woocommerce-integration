@@ -30,7 +30,15 @@ class Baserow_API_Handler {
 
     public function test_connection() {
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            return new WP_Error('missing_config', 'Missing API configuration');
+            $missing = array();
+            if (empty($this->api_url)) $missing[] = 'API URL';
+            if (empty($this->api_token)) $missing[] = 'API Token';
+            if (empty($this->table_id)) $missing[] = 'Table ID';
+            
+            return new WP_Error(
+                'missing_config',
+                'Missing required settings: ' . implode(', ', $missing)
+            );
         }
 
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1";
@@ -44,13 +52,33 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            return $response;
+            return new WP_Error(
+                'connection_failed',
+                'Connection failed: ' . $response->get_error_message()
+            );
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
         
         if ($status_code !== 200) {
-            return new WP_Error('api_error', 'API returned status code ' . $status_code);
+            $error = 'API returned status ' . $status_code;
+            if ($status_code === 401) {
+                $error = 'Invalid API token';
+            } elseif ($status_code === 404) {
+                $error = 'Invalid table ID or API URL';
+            }
+            return new WP_Error('api_error', $error);
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return new WP_Error('json_error', 'Invalid response from API');
+        }
+
+        if (!isset($data['count'])) {
+            return new WP_Error('invalid_response', 'Invalid response format from API');
         }
 
         return true;

@@ -25,11 +25,194 @@
     background: #f9f9f9;
 }
 
+/* Checkbox column */
+.products-table td:first-child,
+.products-table th:first-child {
+    width: 30px;
+    text-align: center;
+}
+
+/* Image column */
+.product-image-cell {
+    width: 80px;
+}
+
+.product-image-cell img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border: 1px solid #eee;
+    vertical-align: middle;
+}
+
+/* Status badges */
+.status-badges {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: white;
+}
+
+.badge-wordpress {
+    background: #666;
+}
+
+.badge-di {
+    background: #4CAF50;
+}
+
+.badge-fs {
+    background: #2196F3;
+}
+
+.badge-new {
+    background: #e44d26;
+}
+
+/* Price columns */
+.cost-price-col,
+.sell-price-col {
+    text-align: right;
+    width: 100px;
+}
+
+/* Actions column */
+.actions-col {
+    width: 80px;
+    text-align: right;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.action-button {
+    padding: 4px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-button .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Search Controls */
+.baserow-search-container {
+    margin: 20px 0;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.baserow-search-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Bulk Actions */
+.bulk-actions {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f8f8f8;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    background: white;
+    padding: 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+}
+
+/* Pagination */
+.baserow-pagination {
+    margin: 20px 0;
+    text-align: right;
+}
+
+.baserow-pagination .tablenav-pages {
+    float: none;
+    display: inline-block;
+}
+
+.baserow-pagination .pagination-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.baserow-pagination .button {
+    padding: 0 10px;
+    line-height: 30px;
+    height: 30px;
+    min-width: 30px;
+    text-align: center;
+}
+
+.baserow-pagination .button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.baserow-pagination .paging-input {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0 10px;
+}
+
+.baserow-pagination .current-page {
+    font-weight: bold;
+}
+
+.baserow-pagination .total-pages:before {
+    content: "of ";
+    margin-right: 3px;
+}
+
 /* Connection Test */
 #connection-status {
     display: inline-block;
     margin-left: 10px;
     padding: 5px;
+    white-space: pre-line;
 }
-
-/* Rest of existing styles remain unchanged */

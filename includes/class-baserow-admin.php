@@ -6,12 +6,10 @@ if (!defined('ABSPATH')) {
 class Baserow_Admin {
     private $api_handler;
     private $product_importer;
-    private $settings;
 
-    public function __construct($api_handler, $product_importer, $settings = null) {
-        $this->api_handler = $api_handler;
-        $this->product_importer = $product_importer;
-        $this->settings = $settings;
+    public function __construct() {
+        $this->api_handler = new Baserow_API_Handler();
+        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->init_hooks();
     }
 
@@ -35,22 +33,10 @@ class Baserow_Admin {
             'dashicons-database-import',
             56
         );
-
-        // Only add settings submenu if settings class is available
-        if ($this->settings !== null) {
-            add_submenu_page(
-                'baserow-importer',
-                'Baserow Settings',
-                'Settings',
-                'manage_options',
-                'baserow-importer-settings',
-                array($this->settings, 'render_settings_page')
-            );
-        }
     }
 
     public function enqueue_admin_scripts($hook) {
-        if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
+        if ($hook !== 'toplevel_page_baserow-importer') {
             return;
         }
 
@@ -353,3 +339,6 @@ class Baserow_Admin {
         }
     }
 }
+
+// Initialize the admin interface
+new Baserow_Admin();

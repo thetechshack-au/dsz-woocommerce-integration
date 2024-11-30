@@ -1,250 +1,123 @@
 <?php
-/**
- * Class: Baserow Category AJAX Handler
- * Description: Handles AJAX operations for categories
- * Version: 1.4.0
- * Last Updated: 2024-01-09 14:00:00 UTC
- */
-
 if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Handles AJAX requests for category operations
+ */
 class Baserow_Category_Ajax {
-    use Baserow_Logger_Trait;
-
+    /** @var Baserow_Category_Manager */
     private $category_manager;
 
     public function __construct() {
+        $this->category_manager = new Baserow_Category_Manager();
+        
         // Register AJAX actions
-        add_action('wp_ajax_create_category', array($this, 'create_category'));
-        add_action('wp_ajax_get_category_hierarchy', array($this, 'get_category_hierarchy'));
-        add_action('wp_ajax_merge_categories', array($this, 'merge_categories'));
-        add_action('wp_ajax_cleanup_categories', array($this, 'cleanup_categories'));
+        add_action('wp_ajax_get_categories', array($this, 'get_categories'));
+        add_action('wp_ajax_get_category_tree', array($this, 'get_category_tree'));
+        add_action('wp_ajax_get_parent_categories', array($this, 'get_parent_categories'));
         add_action('wp_ajax_get_child_categories', array($this, 'get_child_categories'));
+        add_action('wp_ajax_update_categories', array($this, 'update_categories'));
     }
 
     /**
-     * Set dependencies
+     * Get all categories
      */
-    public function set_dependencies($category_manager) {
-        $this->category_manager = $category_manager;
+    public function get_categories() {
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $categories = $this->category_manager->get_categories();
+        wp_send_json_success($categories);
     }
 
     /**
-     * Handle category creation AJAX request
+     * Get category tree
      */
-    public function create_category() {
-        $this->verify_ajax_nonce();
+    public function get_category_tree() {
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
 
-        if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
-            return;
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
         }
 
-        $category_path = isset($_POST['category_path']) ? sanitize_text_field($_POST['category_path']) : '';
-        
-        if (empty($category_path)) {
-            wp_send_json_error('Category path is required');
-            return;
-        }
-
-        $this->log_debug("Creating category from path", array(
-            'path' => $category_path
-        ));
-
-        try {
-            $result = $this->category_manager->create_or_get_categories($category_path);
-
-            if (is_wp_error($result)) {
-                $this->log_error("Category creation failed", array(
-                    'error' => $result->get_error_message()
-                ));
-                wp_send_json_error($result->get_error_message());
-                return;
-            }
-
-            $response = array(
-                'category_ids' => $result,
-                'message' => 'Categories created successfully'
-            );
-
-            // Add category paths to response
-            $paths = array();
-            foreach ($result as $category_id) {
-                $paths[$category_id] = $this->category_manager->get_category_path($category_id);
-            }
-            $response['category_paths'] = $paths;
-
-            wp_send_json_success($response);
-
-        } catch (Exception $e) {
-            $this->log_error("Category creation error", array(
-                'error' => $e->getMessage()
-            ));
-            wp_send_json_error($e->getMessage());
-        }
+        $tree = $this->category_manager->get_category_tree();
+        wp_send_json_success($tree);
     }
 
     /**
-     * Handle get category hierarchy AJAX request
+     * Get parent categories
      */
-    public function get_category_hierarchy() {
-        $this->verify_ajax_nonce();
+    public function get_parent_categories() {
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
 
-        $category_id = isset($_GET['category_id']) ? absint($_GET['category_id']) : 0;
-        
-        if (!$category_id) {
-            wp_send_json_error('Category ID is required');
-            return;
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
         }
 
-        try {
-            $hierarchy = $this->category_manager->get_category_hierarchy($category_id);
-
-            if (is_wp_error($hierarchy)) {
-                wp_send_json_error($hierarchy->get_error_message());
-                return;
-            }
-
-            $response = array(
-                'hierarchy' => $hierarchy,
-                'path' => $this->category_manager->get_category_path($category_id)
-            );
-
-            wp_send_json_success($response);
-
-        } catch (Exception $e) {
-            $this->log_error("Error getting category hierarchy", array(
-                'error' => $e->getMessage()
-            ));
-            wp_send_json_error($e->getMessage());
-        }
+        $parents = $this->category_manager->get_parent_categories();
+        wp_send_json_success($parents);
     }
 
     /**
-     * Handle merge categories AJAX request
-     */
-    public function merge_categories() {
-        $this->verify_ajax_nonce();
-
-        if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
-            return;
-        }
-
-        $source_id = isset($_POST['source_id']) ? absint($_POST['source_id']) : 0;
-        $target_id = isset($_POST['target_id']) ? absint($_POST['target_id']) : 0;
-
-        if (!$source_id || !$target_id) {
-            wp_send_json_error('Source and target category IDs are required');
-            return;
-        }
-
-        $this->log_debug("Merging categories", array(
-            'source_id' => $source_id,
-            'target_id' => $target_id
-        ));
-
-        try {
-            $result = $this->category_manager->merge_categories($source_id, $target_id);
-
-            if (is_wp_error($result)) {
-                wp_send_json_error($result->get_error_message());
-                return;
-            }
-
-            wp_send_json_success(array(
-                'message' => 'Categories merged successfully'
-            ));
-
-        } catch (Exception $e) {
-            $this->log_error("Error merging categories", array(
-                'error' => $e->getMessage()
-            ));
-            wp_send_json_error($e->getMessage());
-        }
-    }
-
-    /**
-     * Handle cleanup categories AJAX request
-     */
-    public function cleanup_categories() {
-        $this->verify_ajax_nonce();
-
-        if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
-            return;
-        }
-
-        try {
-            $deleted = $this->category_manager->cleanup_empty_categories();
-
-            if (is_wp_error($deleted)) {
-                wp_send_json_error($deleted->get_error_message());
-                return;
-            }
-
-            wp_send_json_success(array(
-                'deleted_count' => $deleted,
-                'message' => sprintf('Cleaned up %d empty categories', $deleted)
-            ));
-
-        } catch (Exception $e) {
-            $this->log_error("Error cleaning up categories", array(
-                'error' => $e->getMessage()
-            ));
-            wp_send_json_error($e->getMessage());
-        }
-    }
-
-    /**
-     * Handle get child categories AJAX request
+     * Get child categories
      */
     public function get_child_categories() {
-        $this->verify_ajax_nonce();
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
 
-        $parent_id = isset($_GET['parent_id']) ? absint($_GET['parent_id']) : 0;
-
-        try {
-            $children = $this->category_manager->get_child_categories($parent_id);
-
-            if (is_wp_error($children)) {
-                wp_send_json_error($children->get_error_message());
-                return;
-            }
-
-            $response = array(
-                'categories' => array()
-            );
-
-            foreach ($children as $category) {
-                $response['categories'][] = array(
-                    'term_id' => $category->term_id,
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                    'count' => $category->count,
-                    'path' => $this->category_manager->get_category_path($category->term_id)
-                );
-            }
-
-            wp_send_json_success($response);
-
-        } catch (Exception $e) {
-            $this->log_error("Error getting child categories", array(
-                'error' => $e->getMessage()
-            ));
-            wp_send_json_error($e->getMessage());
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
         }
+
+        $parent = isset($_POST['parent']) ? sanitize_text_field($_POST['parent']) : '';
+        if (empty($parent)) {
+            wp_send_json_error('Parent category is required');
+        }
+
+        $children = $this->category_manager->get_child_categories($parent);
+        wp_send_json_success($children);
     }
 
     /**
-     * Verify AJAX nonce
+     * Update categories from Baserow
      */
-    private function verify_ajax_nonce() {
-        if (!check_ajax_referer('baserow_ajax_nonce', 'nonce', false)) {
-            wp_send_json_error('Invalid security token');
-            exit;
+    public function update_categories() {
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        // Get API credentials from options
+        $api_url = get_option('baserow_api_url');
+        $table_id = get_option('baserow_table_id');
+        $api_token = get_option('baserow_api_token');
+
+        if (empty($api_url) || empty($table_id) || empty($api_token)) {
+            wp_send_json_error('API configuration is incomplete');
+        }
+
+        // Path to Python script
+        $script_path = plugin_dir_path(dirname(dirname(__FILE__))) . 'scripts/get_baserow_categories.py';
+
+        $result = $this->category_manager->update_categories(
+            $script_path,
+            $api_url,
+            $table_id,
+            $api_token
+        );
+
+        if ($result) {
+            wp_send_json_success('Categories updated successfully');
+        } else {
+            wp_send_json_error('Failed to update categories');
         }
     }
 }
+
+// Initialize the class
+new Baserow_Category_Ajax();

@@ -1,273 +1,275 @@
 <?php
+/**
+ * Class: Baserow Category Manager
+ * Description: Handles creation and management of product categories
+ * Version: 1.4.0
+ * Last Updated: 2024-01-09 14:00:00 UTC
+ */
+
 if (!defined('ABSPATH')) {
     exit;
 }
 
-/**
- * Manages Baserow category operations and caching
- */
 class Baserow_Category_Manager {
-    /** @var string */
-    private $categories_file;
-    
-    /** @var array */
-    private $categories = array();
-    
-    /** @var array */
-    private $category_tree = array();
-    
-    /** @var bool */
-    private $is_initialized = false;
+    use Baserow_Logger_Trait;
+    use Baserow_Data_Validator_Trait;
 
     /**
-     * Constructor
+     * Create or get categories from path
      */
-    public function __construct() {
-        $this->categories_file = plugin_dir_path(dirname(dirname(__FILE__))) . 'data/dsz-categories.csv';
+    public function create_or_get_categories($category_path) {
+        $this->log_debug("Processing category path", array('path' => $category_path));
+
+        // Validate category path
+        $validation_result = $this->validate_category_data($category_path);
+        if (is_wp_error($validation_result)) {
+            return $validation_result;
+        }
+
+        $categories = explode('>', $category_path);
+        $categories = array_map('trim', $categories);
+        $parent_id = 0;
+        $category_ids = array();
+
+        foreach ($categories as $category_name) {
+            $result = $this->create_or_get_category($category_name, $parent_id);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+
+            $parent_id = $result['term_id'];
+            $category_ids[] = $result['term_id'];
+        }
+
+        return $category_ids;
     }
 
     /**
-     * Initialize the category manager
+     * Create or get single category
      */
-    public function init() {
-        if ($this->is_initialized) {
-            return;
+    private function create_or_get_category($category_name, $parent_id = 0) {
+        $this->log_debug("Processing category", array(
+            'name' => $category_name,
+            'parent' => $parent_id
+        ));
+
+        // Check if category exists
+        $term = term_exists($category_name, 'product_cat', $parent_id);
+        
+        if (!$term) {
+            $this->log_info("Creating new category", array(
+                'name' => $category_name,
+                'parent' => $parent_id
+            ));
+
+            $term = wp_insert_term(
+                $category_name,
+                'product_cat',
+                array(
+                    'parent' => $parent_id,
+                    'slug' => $this->generate_unique_slug($category_name)
+                )
+            );
+
+            if (is_wp_error($term)) {
+                $this->log_error("Failed to create category", array(
+                    'name' => $category_name,
+                    'error' => $term->get_error_message()
+                ));
+                return $term;
+            }
         }
 
-        $this->load_categories();
-        $this->build_category_tree();
-        $this->is_initialized = true;
+        return $term;
     }
 
     /**
-     * Load categories from CSV file
+     * Generate unique category slug
      */
-    private function load_categories() {
-        if (!file_exists($this->categories_file)) {
-            Baserow_Logger::error("Categories file not found: " . $this->categories_file);
-            return;
+    private function generate_unique_slug($category_name) {
+        $slug = sanitize_title($category_name);
+        $original_slug = $slug;
+        $counter = 1;
+
+        while (term_exists($slug, 'product_cat')) {
+            $slug = $original_slug . '-' . $counter;
+            $counter++;
         }
 
-        $handle = fopen($this->categories_file, "r");
-        if ($handle !== false) {
-            // Skip header row
-            fgetcsv($handle);
-            
-            while (($data = fgetcsv($handle)) !== false) {
-                if (count($data) >= 5) {
-                    $category = array(
-                        'id' => $data[0],
-                        'name' => $data[1],
-                        'parent' => $data[2],
-                        'top' => $data[3],
-                        'full_path' => $data[4]
-                    );
-                    
-                    $this->categories[$category['id']] = $category;
+        return $slug;
+    }
+
+    /**
+     * Get category hierarchy
+     */
+    public function get_category_hierarchy($category_id) {
+        $hierarchy = array();
+        $term = get_term($category_id, 'product_cat');
+
+        if (is_wp_error($term) || !$term) {
+            return new WP_Error(
+                'invalid_category',
+                'Category not found'
+            );
+        }
+
+        $hierarchy[] = $term;
+
+        while ($term->parent != 0) {
+            $term = get_term($term->parent, 'product_cat');
+            if (is_wp_error($term)) {
+                break;
+            }
+            array_unshift($hierarchy, $term);
+        }
+
+        return $hierarchy;
+    }
+
+    /**
+     * Get category path string
+     */
+    public function get_category_path($category_id) {
+        $hierarchy = $this->get_category_hierarchy($category_id);
+        
+        if (is_wp_error($hierarchy)) {
+            return $hierarchy;
+        }
+
+        return implode(' > ', array_map(function($term) {
+            return $term->name;
+        }, $hierarchy));
+    }
+
+    /**
+     * Get all child categories
+     */
+    public function get_child_categories($parent_id = 0) {
+        $args = array(
+            'taxonomy' => 'product_cat',
+            'hide_empty' => false,
+            'parent' => $parent_id
+        );
+
+        $terms = get_terms($args);
+
+        if (is_wp_error($terms)) {
+            $this->log_error("Failed to get child categories", array(
+                'parent_id' => $parent_id,
+                'error' => $terms->get_error_message()
+            ));
+            return $terms;
+        }
+
+        return $terms;
+    }
+
+    /**
+     * Update category meta
+     */
+    public function update_category_meta($category_id, $meta_data) {
+        foreach ($meta_data as $key => $value) {
+            update_term_meta($category_id, $key, $value);
+        }
+
+        $this->log_debug("Updated category meta", array(
+            'category_id' => $category_id,
+            'meta_data' => $meta_data
+        ));
+
+        return true;
+    }
+
+    /**
+     * Clean up empty categories
+     */
+    public function cleanup_empty_categories() {
+        $args = array(
+            'taxonomy' => 'product_cat',
+            'hide_empty' => false,
+            'fields' => 'ids'
+        );
+
+        $terms = get_terms($args);
+
+        if (is_wp_error($terms)) {
+            return $terms;
+        }
+
+        $deleted = 0;
+        foreach ($terms as $term_id) {
+            $products = get_posts(array(
+                'post_type' => 'product',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'product_cat',
+                        'field' => 'term_id',
+                        'terms' => $term_id
+                    )
+                ),
+                'posts_per_page' => 1
+            ));
+
+            if (empty($products)) {
+                $result = wp_delete_term($term_id, 'product_cat');
+                if (!is_wp_error($result)) {
+                    $deleted++;
                 }
             }
-            fclose($handle);
         }
+
+        $this->log_info("Cleaned up empty categories", array(
+            'deleted_count' => $deleted
+        ));
+
+        return $deleted;
     }
 
     /**
-     * Build hierarchical category tree
+     * Merge categories
      */
-    private function build_category_tree() {
-        foreach ($this->categories as $category) {
-            if (!isset($this->category_tree[$category['top']])) {
-                $this->category_tree[$category['top']] = array();
-            }
-            
-            if (!isset($this->category_tree[$category['top']][$category['parent']])) {
-                $this->category_tree[$category['top']][$category['parent']] = array();
-            }
-            
-            $this->category_tree[$category['top']][$category['parent']][] = $category;
-        }
-    }
+    public function merge_categories($source_id, $target_id) {
+        // Get products from source category
+        $products = get_posts(array(
+            'post_type' => 'product',
+            'tax_query' => array(
+                array(
+                    'taxonomy' => 'product_cat',
+                    'field' => 'term_id',
+                    'terms' => $source_id
+                )
+            ),
+            'posts_per_page' => -1
+        ));
 
-    /**
-     * Get all categories
-     *
-     * @return array Array of all categories
-     */
-    public function get_categories() {
-        $this->init();
-        return $this->categories;
-    }
-
-    /**
-     * Get category tree
-     *
-     * @return array Hierarchical category structure
-     */
-    public function get_category_tree() {
-        $this->init();
-        return $this->category_tree;
-    }
-
-    /**
-     * Get category by ID
-     *
-     * @param string $id Category ID
-     * @return array|null Category data or null if not found
-     */
-    public function get_category_by_id($id) {
-        $this->init();
-        return isset($this->categories[$id]) ? $this->categories[$id] : null;
-    }
-
-    /**
-     * Get category by full path
-     *
-     * @param string $path Full category path
-     * @return array|null Category data or null if not found
-     */
-    public function get_category_by_path($path) {
-        $this->init();
-        foreach ($this->categories as $category) {
-            if ($category['full_path'] === $path) {
-                return $category;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get category by name
-     *
-     * @param string $name Category name
-     * @return array|null Category data or null if not found
-     */
-    public function get_category_by_name($name) {
-        $this->init();
-        foreach ($this->categories as $category) {
-            if ($category['name'] === $name) {
-                return $category;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get child categories
-     *
-     * @param string $parent_name Parent category name
-     * @return array Array of child categories
-     */
-    public function get_child_categories($parent_name) {
-        $this->init();
-        $children = array();
-        
-        foreach ($this->categories as $category) {
-            if ($category['parent'] === $parent_name) {
-                $children[] = $category;
-            }
-        }
-        
-        return $children;
-    }
-
-    /**
-     * Get parent categories
-     *
-     * @return array Array of unique parent categories
-     */
-    public function get_parent_categories() {
-        $this->init();
-        $parents = array();
-        
-        foreach ($this->categories as $category) {
-            if (!in_array($category['parent'], $parents)) {
-                $parents[] = $category['parent'];
-            }
-        }
-        
-        sort($parents);
-        return $parents;
-    }
-
-    /**
-     * Validate category path
-     *
-     * @param string $path Category path to validate
-     * @return bool True if valid category path
-     */
-    public function is_valid_category($path) {
-        $this->init();
-        foreach ($this->categories as $category) {
-            if ($category['full_path'] === $path) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Get formatted category path
-     *
-     * @param string $category_name Category name or path
-     * @return string|null Full category path or null if not found
-     */
-    public function get_formatted_path($category_name) {
-        $this->init();
-        
-        // First try exact match
-        foreach ($this->categories as $category) {
-            if ($category['full_path'] === $category_name) {
-                return $category['full_path'];
-            }
-        }
-        
-        // Then try matching by name
-        foreach ($this->categories as $category) {
-            if ($category['name'] === $category_name) {
-                return $category['full_path'];
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * Update the categories CSV file
-     * 
-     * @param string $python_script Path to Python script
-     * @param string $api_url Baserow API URL
-     * @param string $table_id Baserow table ID
-     * @param string $api_token Baserow API token
-     * @return bool True if update successful
-     */
-    public function update_categories($python_script, $api_url, $table_id, $api_token) {
-        if (!file_exists($python_script)) {
-            Baserow_Logger::error("Python script not found: " . $python_script);
-            return false;
+        // Move products to target category
+        foreach ($products as $product) {
+            wp_set_object_terms(
+                $product->ID,
+                array($target_id),
+                'product_cat',
+                true // Append to existing terms
+            );
         }
 
-        $output = array();
-        $return_var = 0;
-        
-        $command = sprintf(
-            'python %s %s %s %s',
-            escapeshellarg($python_script),
-            escapeshellarg($api_url),
-            escapeshellarg($table_id),
-            escapeshellarg($api_token)
-        );
-        
-        exec($command, $output, $return_var);
-        
-        if ($return_var !== 0) {
-            Baserow_Logger::error("Failed to update categories: " . implode("\n", $output));
-            return false;
+        // Delete source category
+        $result = wp_delete_term($source_id, 'product_cat');
+
+        if (is_wp_error($result)) {
+            $this->log_error("Failed to merge categories", array(
+                'source_id' => $source_id,
+                'target_id' => $target_id,
+                'error' => $result->get_error_message()
+            ));
+            return $result;
         }
 
-        // Reset initialization to reload categories
-        $this->is_initialized = false;
-        $this->categories = array();
-        $this->category_tree = array();
-        
+        $this->log_info("Categories merged successfully", array(
+            'source_id' => $source_id,
+            'target_id' => $target_id,
+            'products_moved' => count($products)
+        ));
+
         return true;
     }
 }

@@ -3,6 +3,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once plugin_dir_path(__FILE__) . 'categories/class-baserow-category-manager.php';
+
 class Baserow_API_Handler {
     private $api_url;
     private $api_token;

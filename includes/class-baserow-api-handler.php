@@ -41,7 +41,7 @@ class Baserow_API_Handler {
             $categories = $this->get_categories_from_api();
         } else {
             $this->log_debug("Successfully loaded " . count($categories) . " categories from CSV");
-            return $categories; // Return CSV categories if we have them
+            return $categories;
         }
 
         return $categories;
@@ -154,6 +154,111 @@ class Baserow_API_Handler {
         }
 
         return $categories;
+    }
+
+    public function search_products($search_term = '', $category = '', $page = 1) {
+        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
+            $this->log_error("API configuration is incomplete");
+            return new WP_Error('config_error', 'API configuration is incomplete');
+        }
+
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page={$page}";
+        
+        if (!empty($search_term)) {
+            $url .= '&search=' . urlencode($search_term);
+        }
+
+        if (!empty($category)) {
+            $category_parts = explode(' > ', $category);
+            $search_term = end($category_parts);
+            $url .= '&filter__Category__contains=' . rawurlencode($search_term);
+        }
+
+        $this->log_debug("Making search request to: " . $url);
+
+        $response = wp_remote_get($url, array(
+            'headers' => array(
+                'Authorization' => 'Token ' . $this->api_token,
+                'Content-Type' => 'application/json'
+            ),
+            'timeout' => 30
+        ));
+
+        if (is_wp_error($response)) {
+            $this->log_error("Search API error: " . $response->get_error_message());
+            return new WP_Error('api_error', $response->get_error_message());
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+
+        if ($status_code !== 200) {
+            $this->log_error("Search API status error: " . $status_code);
+            $this->log_error("Response body: " . $body);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
+        }
+
+        $data = json_decode($body, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_error("Search JSON parse error: " . json_last_error_msg());
+            return new WP_Error('json_error', "Failed to parse JSON response");
+        }
+
+        if (!isset($data['results']) || !isset($data['count'])) {
+            $this->log_error("Invalid API response format");
+            return new WP_Error('invalid_response', "Invalid API response format");
+        }
+
+        $this->log_debug("Search response received", array(
+            'total_results' => $data['count'],
+            'current_page' => $page,
+            'results_in_page' => count($data['results'])
+        ));
+
+        return array(
+            'results' => $data['results'],
+            'count' => $data['count'],
+            'pagination' => array(
+                'current_page' => $page,
+                'total_pages' => ceil($data['count'] / $this->per_page),
+                'total_items' => $data['count']
+            )
+        );
+    }
+
+    public function test_connection() {
+        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
+            $this->log_error("Test connection failed: Missing configuration");
+            return false;
+        }
+
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1";
+        
+        $this->log_debug("Testing connection with URL: " . $url);
+
+        $response = wp_remote_get($url, array(
+            'headers' => array(
+                'Authorization' => 'Token ' . $this->api_token,
+                'Content-Type' => 'application/json'
+            ),
+            'timeout' => 30
+        ));
+
+        if (is_wp_error($response)) {
+            $this->log_error("Test connection error: " . $response->get_error_message());
+            return false;
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        
+        if ($status_code !== 200) {
+            $this->log_error("Test connection failed with status: " . $status_code);
+            return false;
+        }
+
+        $this->log_debug("Test connection successful");
+        return true;
     }
 
     // ... [rest of the methods remain unchanged]

@@ -43,7 +43,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/row/{$product_id}/?user_field_names=true";
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/rows/{$product_id}/?user_field_names=true";
         
         $this->log_debug("Fetching product from API: " . $url);
 

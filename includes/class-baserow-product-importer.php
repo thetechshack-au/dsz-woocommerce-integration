@@ -122,7 +122,7 @@ class Baserow_Product_Importer {
             
             // Set prices
             $regular_price = is_numeric($product_data['RrpPrice']) ? $product_data['RrpPrice'] : 0;
-            $sale_price = is_numeric($product_data['Price']) ? $product_data['Price'] : 0;  // Updated from 'price' to 'Price'
+            $sale_price = is_numeric($product_data['Price']) ? $product_data['Price'] : 0;
             $product->set_regular_price($regular_price);
             $product->set_price($sale_price);
             $product->set_description($product_data['Description']);
@@ -194,5 +194,142 @@ class Baserow_Product_Importer {
         }
     }
 
-    // ... [rest of the methods remain unchanged]
+    public function update_shipping_zones($product_data, $product_id) {
+        Baserow_Logger::info("Updating shipping zones");
+
+        try {
+            // Get current zone map
+            $zone_map = get_option('dsz_zone_map', array());
+            if (empty($zone_map)) {
+                $zone_map = array(
+                    'zone_map' => $this->shipping_zones,
+                    'postcode_map' => array()
+                );
+            }
+
+            // Update postcode map for regional areas
+            foreach ($this->regional_postcodes as $zone => $ranges) {
+                foreach ($ranges as $range) {
+                    list($start, $end) = explode('-', $range);
+                    for ($postcode = intval($start); $postcode <= intval($end); $postcode++) {
+                        $zone_map['postcode_map'][str_pad($postcode, 4, '0', STR_PAD_LEFT)] = $zone;
+                    }
+                }
+            }
+
+            // Update WordPress option
+            update_option('dsz_zone_map', $zone_map);
+            Baserow_Logger::info("Shipping zones updated successfully");
+
+        } catch (Exception $e) {
+            Baserow_Logger::error("Error updating shipping zones: " . $e->getMessage());
+        }
+    }
+
+    private function create_or_get_categories($category_path) {
+        Baserow_Logger::debug("Processing categories: {$category_path}");
+        
+        $categories = explode('>', $category_path);
+        $categories = array_map('trim', $categories);
+        $parent_id = 0;
+        $category_ids = array();
+
+        foreach ($categories as $category_name) {
+            $term = term_exists($category_name, 'product_cat', $parent_id);
+            
+            if (!$term) {
+                Baserow_Logger::info("Creating new category: {$category_name}");
+                $term = wp_insert_term($category_name, 'product_cat', array('parent' => $parent_id));
+            }
+            
+            if (!is_wp_error($term)) {
+                $parent_id = $term['term_id'];
+                $category_ids[] = $term['term_id'];
+            } else {
+                Baserow_Logger::error("Error creating category {$category_name}: " . $term->get_error_message());
+            }
+        }
+
+        return $category_ids;
+    }
+
+    private function handle_product_images($product, $product_data, $product_id) {
+        Baserow_Logger::debug("Starting image handling for product ID: {$product_id}");
+        
+        $image_ids = array();
+        for ($i = 1; $i <= 5; $i++) {
+            if (!empty($product_data["Image {$i}"])) {
+                Baserow_Logger::debug("Processing image {$i}: " . $product_data["Image {$i}"]);
+                $image_id = $this->handle_single_image($product_data["Image {$i}"], $product_id);
+                if ($image_id) {
+                    $image_ids[] = $image_id;
+                }
+            }
+        }
+
+        if (!empty($image_ids)) {
+            Baserow_Logger::debug("Setting product images: " . print_r($image_ids, true));
+            $product->set_image_id($image_ids[0]);
+            if (count($image_ids) > 1) {
+                array_shift($image_ids);
+                $product->set_gallery_image_ids($image_ids);
+            }
+            $product->save();
+        }
+
+        return $image_ids;
+    }
+
+    private function handle_single_image($image_url, $product_id) {
+        Baserow_Logger::debug("Downloading image: {$image_url}");
+        
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        $temp_file = download_url($image_url);
+        if (is_wp_error($temp_file)) {
+            Baserow_Logger::error("Failed to download image: " . $temp_file->get_error_message());
+            return false;
+        }
+
+        $file_array = array(
+            'name' => basename($image_url),
+            'tmp_name' => $temp_file
+        );
+
+        $id = media_handle_sideload($file_array, $product_id);
+        @unlink($temp_file);
+
+        if (is_wp_error($id)) {
+            Baserow_Logger::error("Failed to handle image upload: " . $id->get_error_message());
+            return false;
+        }
+
+        Baserow_Logger::info("Image uploaded successfully with ID: {$id}");
+        return $id;
+    }
+
+    private function track_imported_product($baserow_id, $woo_product_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'baserow_imported_products';
+
+        Baserow_Logger::debug("Tracking imported product - Baserow ID: {$baserow_id}, WooCommerce ID: {$woo_product_id}");
+
+        $result = $wpdb->replace(
+            $table_name,
+            array(
+                'baserow_id' => $baserow_id,
+                'woo_product_id' => $woo_product_id,
+                'last_sync' => current_time('mysql')
+            ),
+            array('%s', '%d', '%s')
+        );
+
+        if ($result === false) {
+            Baserow_Logger::error("Failed to track imported product: " . $wpdb->last_error);
+        } else {
+            Baserow_Logger::info("Successfully tracked imported product");
+        }
+    }
 }

@@ -3,6 +3,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Ensure logger is available
+if (!class_exists('Baserow_Logger')) {
+    require_once plugin_dir_path(dirname(__FILE__)) . 'class-baserow-logger.php';
+}
+
 /**
  * Manages Baserow category operations and caching
  */
@@ -24,6 +29,12 @@ class Baserow_Category_Manager {
      */
     public function __construct() {
         $this->categories_file = plugin_dir_path(dirname(dirname(__FILE__))) . 'data/dsz-categories.csv';
+        
+        // Ensure data directory exists
+        $data_dir = dirname($this->categories_file);
+        if (!file_exists($data_dir)) {
+            wp_mkdir_p($data_dir);
+        }
     }
 
     /**
@@ -34,9 +45,13 @@ class Baserow_Category_Manager {
             return;
         }
 
-        $this->load_categories();
-        $this->build_category_tree();
-        $this->is_initialized = true;
+        try {
+            $this->load_categories();
+            $this->build_category_tree();
+            $this->is_initialized = true;
+        } catch (Exception $e) {
+            Baserow_Logger::error("Failed to initialize CategoryManager: " . $e->getMessage());
+        }
     }
 
     /**

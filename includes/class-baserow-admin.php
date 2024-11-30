@@ -8,7 +8,7 @@ class Baserow_Admin {
     private $product_importer;
     private $settings;
 
-    public function __construct($api_handler, $product_importer, $settings) {
+    public function __construct($api_handler, $product_importer, $settings = null) {
         $this->api_handler = $api_handler;
         $this->product_importer = $product_importer;
         $this->settings = $settings;
@@ -36,14 +36,17 @@ class Baserow_Admin {
             56
         );
 
-        add_submenu_page(
-            'baserow-importer',
-            'Baserow Settings',
-            'Settings',
-            'manage_options',
-            'baserow-importer-settings',
-            array($this->settings, 'render_settings_page')
-        );
+        // Only add settings submenu if settings class is available
+        if ($this->settings !== null) {
+            add_submenu_page(
+                'baserow-importer',
+                'Baserow Settings',
+                'Settings',
+                'manage_options',
+                'baserow-importer-settings',
+                array($this->settings, 'render_settings_page')
+            );
+        }
     }
 
     public function enqueue_admin_scripts($hook) {
@@ -65,6 +68,11 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION . '.' . time(),
             true
         );
+
+        wp_localize_script('baserow-importer-js', 'baserowImporter', array(
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('baserow_importer_nonce')
+        ));
     }
 
     private function check_api_configuration() {
@@ -133,9 +141,7 @@ class Baserow_Admin {
         <div class="wrap">
             <h1>Baserow Product Importer</h1>
             <div class="notice notice-warning">
-                <p>Please configure your Baserow settings before using the importer. 
-                   <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">Go to Settings</a>
-                </p>
+                <p>Please configure your Baserow settings before using the importer.</p>
             </div>
         </div>
         <?php

@@ -1,36 +1,37 @@
-Category
-Baby & Kids > Baby & Kid's Toys > Activity Toys
-Baby & Kids > Baby & Kid's Toys > Art & Drawing Toys
-Baby & Kids > Baby & Kid's Toys > Building Toys
-"Baby & Kids > Baby & Kid's Toys > Dolls, Playsets & Toy Figures"
-Baby & Kids > Baby & Kid's Toys > Kid's Jigsaw Puzzles
-Baby & Kids > Baby & Kid's Toys > Musical Toys
-Baby & Kids > Baby & Kid's Toys > Outdoor Play Equipment
-Baby & Kids > Baby & Kid's Toys > Pretend Play
-Baby & Kids > Baby & Kids Others > Baby & Toddler Clothing
-Baby & Kids > Baby & Kids Others > Kid's Backpacks
-Baby & Kids > Baby & Kids Others > Kid's Lunch Boxes & Bags
-Baby & Kids > Baby & Kids Others > Pen & Pencil Cases
-Baby & Kids > Boy's Clothing > Boy's Shirts & T-shirts
-Baby & Kids > Boy's Clothing > Boy's Shoes
-Baby & Kids > Boy's Clothing > Boy's Sleepwear
-Baby & Kids > Gates & Playpens > Ball Pits & Play Pens
-Baby & Kids > Gates & Playpens > Safety Gates & Safety Accessories
-Baby & Kids > Girl's Clothing > Girl's Shirts & T-shirts
-Baby & Kids > Girl's Clothing > Girl's Shoes
-Baby & Kids > Girl's Clothing > Girl's Skirts
-Baby & Kids > Girl's Clothing > Girl's Sleepwear
-Baby & Kids > Kid's Furniture > Changing Tables
-Baby & Kids > Kid's Furniture > Kid's Beds & Bed Frames
-Baby & Kids > Kid's Furniture > Kid's Bookcases & Shelves
-Baby & Kids > Kid's Furniture > Kid's Desks
-"Baby & Kids > Kid's Furniture > Kid's Dressers, Cupboards & Wardrobes"
-"Baby & Kids > Kid's Furniture > Kid's Tables, Chairs & Seats"
-Baby & Kids > Kid's Furniture > Toy Boxes
-Baby & Kids > Nursing > Baby Health & Grooming Kits
-Baby & Kids > Nursing > Nursing & Feeding
-"Baby & Kids > Ride On Cars, Go-karts & Bikes > Bikes & Scooters"
-"Baby & Kids > Ride On Cars, Go-karts & Bikes > Go-karts"
-"Baby & Kids > Ride On Cars, Go-karts & Bikes > Ride On Cars"
-Baby & Kids > Strollers > Stroller & Pram Accessories
-Baby & Kids > Strollers > Strollers & Prams
+Category ID,Category Name,Parent Category,Top Category,Full Path
+3054180510,Activity Toys,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Activity Toys
+2314888789,Art & Drawing Toys,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Art & Drawing Toys
+107711006,Building Toys,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Building Toys
+2209370670,"Dolls, Playsets & Toy Figures",Baby & Kid's Toys,Baby & Kids,"Baby & Kids > Baby & Kid's Toys > Dolls, Playsets & Toy Figures"
+835855711,Kid's Jigsaw Puzzles,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Kid's Jigsaw Puzzles
+1112156135,Musical Toys,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Musical Toys
+536085875,Outdoor Play Equipment,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Outdoor Play Equipment
+2481387484,Pretend Play,Baby & Kid's Toys,Baby & Kids,Baby & Kids > Baby & Kid's Toys > Pretend Play
+14389714,Baby & Toddler Clothing,Baby & Kids Others,Baby & Kids,Baby & Kids > Baby & Kids Others > Baby & Toddler Clothing
+2706904334,Kid's Backpacks,Baby & Kids Others,Baby & Kids,Baby & Kids > Baby & Kids Others > Kid's Backpacks
+370130564,Kid's Lunch Boxes & Bags,Baby & Kids Others,Baby & Kids,Baby & Kids > Baby & Kids Others > Kid's Lunch Boxes & Bags
+4201446685,Kids Backpacks,Baby & Kids Others,Baby & Kids,Baby & Kids > Baby & Kids Others > Kids Backpacks
+3574920248,Pen & Pencil Cases,Baby & Kids Others,Baby & Kids,Baby & Kids > Baby & Kids Others > Pen & Pencil Cases
+2798037259,Boy's Shirts & T-shirts,Boy's Clothing,Baby & Kids,Baby & Kids > Boy's Clothing > Boy's Shirts & T-shirts
+2247466552,Boy's Shoes,Boy's Clothing,Baby & Kids,Baby & Kids > Boy's Clothing > Boy's Shoes
+565447531,Boy's Sleepwear,Boy's Clothing,Baby & Kids,Baby & Kids > Boy's Clothing > Boy's Sleepwear
+3995577211,Ball Pits & Play Pens,Gates & Playpens,Baby & Kids,Baby & Kids > Gates & Playpens > Ball Pits & Play Pens
+2383512350,Safety Gates & Safety Accessories,Gates & Playpens,Baby & Kids,Baby & Kids > Gates & Playpens > Safety Gates & Safety Accessories
+1518170022,Girl's Shirts & T-shirts,Girl's Clothing,Baby & Kids,Baby & Kids > Girl's Clothing > Girl's Shirts & T-shirts
+3729291696,Girl's Shoes,Girl's Clothing,Baby & Kids,Baby & Kids > Girl's Clothing > Girl's Shoes
+1456044181,Girl's Skirts,Girl's Clothing,Baby & Kids,Baby & Kids > Girl's Clothing > Girl's Skirts
+844871543,Girl's Sleepwear,Girl's Clothing,Baby & Kids,Baby & Kids > Girl's Clothing > Girl's Sleepwear
+2713662646,Changing Tables,Kid's Furniture,Baby & Kids,Baby & Kids > Kid's Furniture > Changing Tables
+3891644612,Kid's Beds & Bed Frames,Kid's Furniture,Baby & Kids,Baby & Kids > Kid's Furniture > Kid's Beds & Bed Frames
+1745993087,Kid's Bookcases & Shelves,Kid's Furniture,Baby & Kids,Baby & Kids > Kid's Furniture > Kid's Bookcases & Shelves
+1409805677,Kid's Desks,Kid's Furniture,Baby & Kids,Baby & Kids > Kid's Furniture > Kid's Desks
+831351827,"Kid's Dressers, Cupboards & Wardrobes",Kid's Furniture,Baby & Kids,"Baby & Kids > Kid's Furniture > Kid's Dressers, Cupboards & Wardrobes"
+1493145420,"Kid's Tables, Chairs & Seats",Kid's Furniture,Baby & Kids,"Baby & Kids > Kid's Furniture > Kid's Tables, Chairs & Seats"
+1293023828,Toy Boxes,Kid's Furniture,Baby & Kids,Baby & Kids > Kid's Furniture > Toy Boxes
+1041617381,Baby Health & Grooming Kits,Nursing,Baby & Kids,Baby & Kids > Nursing > Baby Health & Grooming Kits
+912620830,Nursing & Feeding,Nursing,Baby & Kids,Baby & Kids > Nursing > Nursing & Feeding
+2558389887,Bikes & Scooters,"Ride On Cars, Go-karts & Bikes",Baby & Kids,"Baby & Kids > Ride On Cars, Go-karts & Bikes > Bikes & Scooters"
+772139244,Go-karts,"Ride On Cars, Go-karts & Bikes",Baby & Kids,"Baby & Kids > Ride On Cars, Go-karts & Bikes > Go-karts"
+915619745,Ride On Cars,"Ride On Cars, Go-karts & Bikes",Baby & Kids,"Baby & Kids > Ride On Cars, Go-karts & Bikes > Ride On Cars"
+89131283,Stroller & Pram Accessories,Strollers,Baby & Kids,Baby & Kids > Strollers > Stroller & Pram Accessories
+1598378946,Strollers & Prams,Strollers,Baby & Kids,Baby & Kids > Strollers > Strollers & Prams

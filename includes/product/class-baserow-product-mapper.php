@@ -54,7 +54,7 @@ class Baserow_Product_Mapper {
             // RrpPrice is the selling price
             $regular_price = $this->get_price_value($baserow_data, 'RrpPrice');
             // Price is the cost price
-            $cost_price = $this->get_price_value($baserow_data, 'Price');
+            $cost_price = $this->get_price_value($baserow_data, 'price');
 
             $product_data = [
                 'name' => $this->sanitize_text_field($baserow_data['Title']),
@@ -107,5 +107,96 @@ class Baserow_Product_Mapper {
         return number_format((float)$price, 2, '.', '');
     }
 
-    // ... [rest of the methods remain unchanged]
+    /**
+     * Prepare meta data for the product
+     *
+     * @param array $baserow_data
+     * @param string $cost_price
+     * @return array
+     */
+    private function prepare_meta_data(array $baserow_data, string $cost_price): array {
+        $meta_data = [
+            '_baserow_id' => $baserow_data['id'],
+            '_cost_price' => $cost_price,
+            '_last_baserow_sync' => current_time('mysql')
+        ];
+
+        // Add any custom fields that start with '_'
+        foreach ($baserow_data as $key => $value) {
+            if (strpos($key, '_') === 0) {
+                $meta_data[$key] = $value;
+            }
+        }
+
+        return $meta_data;
+    }
+
+    /**
+     * Prepare dimensions data
+     *
+     * @param array $baserow_data
+     * @return array
+     */
+    private function prepare_dimensions(array $baserow_data): array {
+        return [
+            'length' => $baserow_data['Carton Length (cm)'] ?? '',
+            'width' => $baserow_data['Carton Width (cm)'] ?? '',
+            'height' => $baserow_data['Carton Height (cm)'] ?? '',
+            'weight' => $baserow_data['Weight (kg)'] ?? ''
+        ];
+    }
+
+    /**
+     * Prepare shipping data
+     *
+     * @param array $baserow_data
+     * @return array
+     */
+    private function prepare_shipping_data(array $baserow_data): array {
+        $shipping_data = [];
+        foreach ($this->shipping_data_fields as $field => $baserow_field) {
+            $shipping_data[$field] = $baserow_data[$baserow_field] ?? '';
+        }
+        return $shipping_data;
+    }
+
+    /**
+     * Prepare stock data
+     *
+     * @param array $baserow_data
+     * @return array
+     */
+    private function prepare_stock_data(array $baserow_data): array {
+        return [
+            'manage_stock' => true,
+            'stock_quantity' => isset($baserow_data['Stock Qty']) ? (int)$baserow_data['Stock Qty'] : 0,
+            'stock_status' => isset($baserow_data['Stock Qty']) && (int)$baserow_data['Stock Qty'] > 0 ? 'instock' : 'outofstock',
+            'backorders' => 'no'
+        ];
+    }
+
+    /**
+     * Prepare image data
+     *
+     * @param array $baserow_data
+     * @return array
+     */
+    private function prepare_image_data(array $baserow_data): array {
+        $images = [];
+        
+        // Add main image if exists
+        if (!empty($baserow_data['Image URL'])) {
+            $images[] = $baserow_data['Image URL'];
+        }
+
+        // Add gallery images if they exist
+        for ($i = 2; $i <= 5; $i++) {
+            $field = "Image URL {$i}";
+            if (!empty($baserow_data[$field])) {
+                $images[] = $baserow_data[$field];
+            }
+        }
+
+        return $images;
+    }
 }

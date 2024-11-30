@@ -20,11 +20,9 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        // Ensure URL has trailing slash and build endpoint
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=100";
+        // Original URL that was getting all 35 categories
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
         
-        Baserow_Logger::debug("Making categories request to: " . $url);
-
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -34,7 +32,6 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            Baserow_Logger::error("Categories API error: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
@@ -42,15 +39,12 @@ class Baserow_API_Handler {
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
-            Baserow_Logger::error("Categories API status error: " . $status_code);
-            Baserow_Logger::error("Response body: " . $body);
-            return new WP_Error('api_error', "API returned status code {$status_code}: " . $body);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Baserow_Logger::error("Categories JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
@@ -65,7 +59,6 @@ class Baserow_API_Handler {
                 }
             }
             sort($categories);
-            Baserow_Logger::debug("Found " . count($categories) . " unique categories");
         }
 
         return $categories;
@@ -78,8 +71,6 @@ class Baserow_API_Handler {
 
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/{$product_id}/?user_field_names=true";
         
-        Baserow_Logger::debug("Making product request to: " . $url);
-
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -89,7 +80,6 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            Baserow_Logger::error("Product API error: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
@@ -97,15 +87,12 @@ class Baserow_API_Handler {
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
-            Baserow_Logger::error("Product API status error: " . $status_code);
-            Baserow_Logger::error("Response body: " . $body);
-            return new WP_Error('api_error', "API returned status code {$status_code}: " . $body);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Baserow_Logger::error("Product JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
@@ -130,8 +117,6 @@ class Baserow_API_Handler {
             }
         }
 
-        Baserow_Logger::debug("Making update request to: " . $url, array('data' => $formatted_data));
-
         $args = array(
             'method' => 'PATCH',
             'headers' => array(
@@ -146,7 +131,6 @@ class Baserow_API_Handler {
         $response = wp_remote_request($url, $args);
 
         if (is_wp_error($response)) {
-            Baserow_Logger::error("Update API error: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
@@ -154,15 +138,12 @@ class Baserow_API_Handler {
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
-            Baserow_Logger::error("Update API status error: " . $status_code);
-            Baserow_Logger::error("Response body: " . $body);
-            return new WP_Error('api_error', "API returned status code {$status_code}: " . $body);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $updated_data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Baserow_Logger::error("Update JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
@@ -212,7 +193,7 @@ class Baserow_API_Handler {
         if ($status_code !== 200) {
             Baserow_Logger::error("Search API status error: " . $status_code);
             Baserow_Logger::error("Response body: " . $body);
-            return new WP_Error('api_error', "API returned status code {$status_code}: " . $body);
+            return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
@@ -231,6 +212,9 @@ class Baserow_API_Handler {
 
         if (!empty($category)) {
             Baserow_Logger::debug("Search results for category '" . $category . "': " . count($data['results']) . " products found");
+            if (!empty($data['results'])) {
+                Baserow_Logger::debug("First product in results: " . print_r($data['results'][0], true));
+            }
         }
 
         return $data;
@@ -238,15 +222,11 @@ class Baserow_API_Handler {
 
     public function test_connection() {
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            Baserow_Logger::error("Test connection failed: Missing configuration");
             return false;
         }
 
-        // Use a minimal request to test the connection
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1";
         
-        Baserow_Logger::debug("Testing connection with URL: " . $url);
-
         $response = wp_remote_get($url, array(
             'headers' => array(
                 'Authorization' => 'Token ' . $this->api_token,
@@ -256,20 +236,10 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
-            Baserow_Logger::error("Test connection error: " . $response->get_error_message());
             return false;
         }
 
         $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status_code !== 200) {
-            Baserow_Logger::error("Test connection failed with status: " . $status_code);
-            Baserow_Logger::error("Response body: " . $body);
-            return false;
-        }
-
-        Baserow_Logger::debug("Test connection successful");
-        return true;
+        return $status_code === 200;
     }
 }

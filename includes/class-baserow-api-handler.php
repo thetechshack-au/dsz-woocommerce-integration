@@ -8,59 +8,22 @@ class Baserow_API_Handler {
     private $api_token;
     private $table_id;
     private $per_page = 20;
+    private $category_manager;
 
     public function __construct() {
         $this->api_url = get_option('baserow_api_url');
         $this->api_token = get_option('baserow_api_token');
         $this->table_id = get_option('baserow_table_id');
+        $this->category_manager = new Baserow_Category_Manager();
     }
 
+    /**
+     * Get all categories using CategoryManager
+     *
+     * @return array Array of category data
+     */
     public function get_categories() {
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            return new WP_Error('config_error', 'API configuration is incomplete');
-        }
-
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
-        
-        $response = wp_remote_get($url, array(
-            'headers' => array(
-                'Authorization' => 'Token ' . $this->api_token,
-                'Content-Type' => 'application/json'
-            ),
-            'timeout' => 30
-        ));
-
-        if (is_wp_error($response)) {
-            return new WP_Error('api_error', $response->get_error_message());
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status_code !== 200) {
-            return new WP_Error('api_error', "API returned status code {$status_code}");
-        }
-
-        $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return new WP_Error('json_error', "Failed to parse JSON response");
-        }
-
-        $categories = array();
-        if (!empty($data['results'])) {
-            foreach ($data['results'] as $product) {
-                if (!empty($product['Category'])) {
-                    $category = trim($product['Category']);
-                    if (!in_array($category, $categories)) {
-                        $categories[] = $category;
-                    }
-                }
-            }
-            sort($categories);
-        }
-
-        return $categories;
+        return $this->category_manager->get_categories();
     }
 
     public function get_product($product_id) {
@@ -164,8 +127,16 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            $url .= '&filter__Category=' . urlencode($category);
-            Baserow_Logger::debug("Search URL with category filter: " . $url);
+            // Get formatted category path from CategoryManager
+            $category_path = $this->category_manager->get_formatted_path($category);
+            
+            if (!empty($category_path)) {
+                // Use exact match with the full category path
+                $url .= '&filter__Category=' . rawurlencode($category_path);
+                Baserow_Logger::debug("Search URL with category filter: " . $url);
+            } else {
+                Baserow_Logger::error("Category not found: " . $category);
+            }
         }
 
         $response = wp_remote_get($url, array(

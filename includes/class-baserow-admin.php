@@ -6,10 +6,12 @@ if (!defined('ABSPATH')) {
 class Baserow_Admin {
     private $api_handler;
     private $product_importer;
+    private $settings;
 
-    public function __construct() {
-        $this->api_handler = new Baserow_API_Handler();
-        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
+    public function __construct($api_handler, $product_importer, $settings) {
+        $this->api_handler = $api_handler;
+        $this->product_importer = $product_importer;
+        $this->settings = $settings;
         $this->init_hooks();
     }
 
@@ -33,10 +35,19 @@ class Baserow_Admin {
             'dashicons-database-import',
             56
         );
+
+        add_submenu_page(
+            'baserow-importer',
+            'Baserow Settings',
+            'Settings',
+            'manage_options',
+            'baserow-importer-settings',
+            array($this->settings, 'render_settings_page')
+        );
     }
 
     public function enqueue_admin_scripts($hook) {
-        if ($hook !== 'toplevel_page_baserow-importer') {
+        if ($hook !== 'toplevel_page_baserow-importer' && $hook !== 'baserow-importer_page_baserow-importer-settings') {
             return;
         }
 
@@ -54,11 +65,6 @@ class Baserow_Admin {
             BASEROW_IMPORTER_VERSION . '.' . time(),
             true
         );
-
-        wp_localize_script('baserow-importer-js', 'baserowImporter', array(
-            'ajaxurl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('baserow_importer_nonce')
-        ));
     }
 
     private function check_api_configuration() {
@@ -127,7 +133,9 @@ class Baserow_Admin {
         <div class="wrap">
             <h1>Baserow Product Importer</h1>
             <div class="notice notice-warning">
-                <p>Please configure your Baserow settings before using the importer.</p>
+                <p>Please configure your Baserow settings before using the importer. 
+                   <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">Go to Settings</a>
+                </p>
             </div>
         </div>
         <?php
@@ -339,6 +347,3 @@ class Baserow_Admin {
         }
     }
 }
-
-// Initialize the admin interface
-new Baserow_Admin();

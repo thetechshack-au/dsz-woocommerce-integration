@@ -24,7 +24,9 @@ class Baserow_Product_Validator {
         $start_time = microtime(true);
 
         try {
-            $this->log_debug("Starting complete product validation");
+            $this->log_debug("Starting complete product validation", [
+                'product_id' => $product_data['id'] ?? 'unknown'
+            ]);
 
             $validations = [
                 'base' => $this->validate_product_data($product_data),
@@ -39,13 +41,17 @@ class Baserow_Product_Validator {
                 if (is_wp_error($result)) {
                     $this->log_error("Validation failed", [
                         'type' => $type,
-                        'error' => $result->get_error_message()
+                        'error' => $result->get_error_message(),
+                        'product_id' => $product_data['id'] ?? 'unknown'
                     ]);
                     return $result;
                 }
             }
 
-            $this->log_debug("Product validation completed successfully");
+            $this->log_debug("Product validation completed successfully", [
+                'product_id' => $product_data['id'] ?? 'unknown',
+                'execution_time' => microtime(true) - $start_time
+            ]);
             return true;
 
         } catch (Exception $e) {
@@ -64,33 +70,60 @@ class Baserow_Product_Validator {
      * @return true|WP_Error
      */
     private function validate_pricing(array $product_data): bool|WP_Error {
-        if (!isset($product_data['price']) || !isset($product_data['RrpPrice'])) {
+        $this->log_debug("Validating pricing", [
+            'price_exists' => isset($product_data['Price']),
+            'cost_price_exists' => isset($product_data['Cost Price'])
+        ]);
+
+        if (!isset($product_data['Price'])) {
             return new WP_Error(
                 'invalid_pricing',
-                'Price and RRP are required'
+                'Regular price is required'
             );
         }
 
-        if (!is_numeric($product_data['price']) || !is_numeric($product_data['RrpPrice'])) {
+        // Remove any currency symbols and spaces for validation
+        $price = preg_replace('/[^0-9.]/', '', $product_data['Price']);
+        $cost_price = isset($product_data['Cost Price']) ? 
+            preg_replace('/[^0-9.]/', '', $product_data['Cost Price']) : null;
+
+        if (!is_numeric($price)) {
             return new WP_Error(
                 'invalid_pricing_format',
-                'Price and RRP must be numeric values'
+                'Regular price must be a numeric value'
             );
         }
 
-        if (floatval($product_data['price']) < 0 || floatval($product_data['RrpPrice']) < 0) {
+        if (floatval($price) < 0) {
             return new WP_Error(
                 'negative_price',
-                'Prices cannot be negative'
+                'Regular price cannot be negative'
             );
         }
 
-        // Optional: Validate price is not greater than RRP
-        if (floatval($product_data['price']) > floatval($product_data['RrpPrice'])) {
-            $this->log_warning("Sale price is greater than RRP", [
-                'sale_price' => $product_data['price'],
-                'rrp' => $product_data['RrpPrice']
-            ]);
+        // Validate cost price if provided
+        if ($cost_price !== null) {
+            if (!is_numeric($cost_price)) {
+                return new WP_Error(
+                    'invalid_cost_price_format',
+                    'Cost price must be a numeric value'
+                );
+            }
+
+            if (floatval($cost_price) < 0) {
+                return new WP_Error(
+                    'negative_cost_price',
+                    'Cost price cannot be negative'
+                );
+            }
+
+            // Optional: Validate cost price is not greater than regular price
+            if (floatval($cost_price) > floatval($price)) {
+                $this->log_warning("Cost price is greater than regular price", [
+                    'cost_price' => $cost_price,
+                    'regular_price' => $price
+                ]);
+            }
         }
 
         return true;

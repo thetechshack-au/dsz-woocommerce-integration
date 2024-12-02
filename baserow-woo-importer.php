@@ -47,12 +47,40 @@ class Baserow_Woo_Importer {
     }
 
     private function load_dependencies() {
+        // Load traits first
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
+
         // Core files
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+
+        // Product-related files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
+
+        // Category files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
+
+        // Shipping files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
+
+        // Order files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/orders/class-baserow-order-handler.php';
+
+        // AJAX handlers
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
+
+        // Admin interface
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
     }
 

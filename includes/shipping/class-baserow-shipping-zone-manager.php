@@ -14,7 +14,7 @@ class Baserow_Shipping_Zone_Manager {
     use Baserow_Logger_Trait;
     use Baserow_Data_Validator_Trait;
 
-    private $shipping_zones = array(
+    private $zone_mapping = array(
         'NSW' => 'NSW_M',  // Metropolitan NSW
         'VIC' => 'VIC_M',  // Metropolitan VIC
         'QLD' => 'QLD_M',  // Metropolitan QLD
@@ -43,7 +43,7 @@ class Baserow_Shipping_Zone_Manager {
         $this->log_debug("Initializing shipping zones");
 
         $zone_map = array(
-            'zone_map' => $this->shipping_zones,
+            'zone_map' => $this->zone_mapping,
             'postcode_map' => array()
         );
 
@@ -172,7 +172,7 @@ class Baserow_Shipping_Zone_Manager {
         }
 
         $required_zones = array_merge(
-            array_values($this->shipping_zones),
+            array_values($this->zone_mapping),
             array_keys($this->regional_postcodes)
         );
 
@@ -207,7 +207,7 @@ class Baserow_Shipping_Zone_Manager {
      */
     public function get_all_zones() {
         return array_merge(
-            array_values($this->shipping_zones),
+            array_values($this->zone_mapping),
             array_keys($this->regional_postcodes)
         );
     }

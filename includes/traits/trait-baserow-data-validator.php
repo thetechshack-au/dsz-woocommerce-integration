@@ -13,7 +13,7 @@ trait Baserow_Data_Validator_Trait {
     protected $validation_rules = [];
 
     /** @var array */
-    protected $shipping_zones = [
+    protected $valid_shipping_zone_codes = [
         'ACT', 'NSW_M', 'NSW_R', 'NT_M', 'NT_R',
         'QLD_M', 'QLD_R', 'REMOTE', 'SA_M', 'SA_R',
         'TAS_M', 'TAS_R', 'VIC_M', 'VIC_R', 'WA_M',
@@ -144,7 +144,7 @@ trait Baserow_Data_Validator_Trait {
         }
 
         // Validate shipping zones
-        foreach ($this->shipping_zones as $zone) {
+        foreach ($this->valid_shipping_zone_codes as $zone) {
             if (isset($data[$zone]) && !empty($data[$zone])) {
                 if (!is_numeric($data[$zone])) {
                     $this->log_error('Invalid shipping zone value', [
@@ -218,7 +218,7 @@ trait Baserow_Data_Validator_Trait {
             );
         }
 
-        $required_fields = array_merge(['is_bulky_item'], $this->shipping_zones);
+        $required_fields = array_merge(['is_bulky_item'], $this->valid_shipping_zone_codes);
 
         foreach ($required_fields as $field) {
             if (!isset($data[$field])) {

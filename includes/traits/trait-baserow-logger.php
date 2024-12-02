@@ -15,6 +15,9 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_debug($message, array $context = []): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         if (class_exists('Baserow_Logger')) {
             return Baserow_Logger::debug($message, $context);
         }
@@ -29,6 +32,9 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_info($message, array $context = []): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         if (class_exists('Baserow_Logger')) {
             return Baserow_Logger::info($message, $context);
         }
@@ -43,6 +49,9 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_error($message, array $context = []): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         if (class_exists('Baserow_Logger')) {
             return Baserow_Logger::error($message, $context);
         }
@@ -57,6 +66,9 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_warning($message, array $context = []): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         if (class_exists('Baserow_Logger')) {
             return Baserow_Logger::warning($message, $context);
         }
@@ -71,6 +83,9 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_critical($message, array $context = []): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         if (class_exists('Baserow_Logger')) {
             return Baserow_Logger::critical($message, $context);
         }
@@ -103,14 +118,17 @@ trait Baserow_Logger_Trait {
      * @return bool
      */
     protected function log_exception(Throwable $exception, string $message = '', string $level = 'error'): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
         $context = $this->get_exception_context($exception);
         $log_message = $message ? $message . ': ' . $exception->getMessage() : $exception->getMessage();
         
-        if (method_exists('Baserow_Logger', $level)) {
+        if (class_exists('Baserow_Logger') && method_exists('Baserow_Logger', $level)) {
             return Baserow_Logger::$level($log_message, $context);
         }
         
-        return Baserow_Logger::error($log_message, $context);
+        return false;
     }
 
     /**
@@ -126,14 +144,23 @@ trait Baserow_Logger_Trait {
         string $level = 'debug',
         array $context = []
     ): bool {
-        $context['memory_usage'] = size_format(memory_get_usage(true));
-        $context['peak_memory'] = size_format(memory_get_peak_usage(true));
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
+
+        if (!function_exists('size_format')) {
+            $context['memory_usage'] = memory_get_usage(true);
+            $context['peak_memory'] = memory_get_peak_usage(true);
+        } else {
+            $context['memory_usage'] = size_format(memory_get_usage(true));
+            $context['peak_memory'] = size_format(memory_get_peak_usage(true));
+        }
         
-        if (method_exists('Baserow_Logger', $level)) {
+        if (class_exists('Baserow_Logger') && method_exists('Baserow_Logger', $level)) {
             return Baserow_Logger::$level($message, $context);
         }
         
-        return Baserow_Logger::debug($message, $context);
+        return false;
     }
 
     /**
@@ -149,14 +176,26 @@ trait Baserow_Logger_Trait {
         float $start_time,
         array $additional_context = []
     ): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
+
         $end_time = microtime(true);
-        $execution_time = round(($end_time - $start_time) * 1000, 2); // Convert to milliseconds
+        $execution_time = round(($end_time - $start_time) * 1000, 2);
+
+        $memory_usage = memory_get_usage(true);
+        $peak_memory = memory_get_peak_usage(true);
+
+        if (function_exists('size_format')) {
+            $memory_usage = size_format($memory_usage);
+            $peak_memory = size_format($peak_memory);
+        }
 
         $context = array_merge([
             'operation' => $operation,
             'execution_time_ms' => $execution_time,
-            'memory_usage' => size_format(memory_get_usage(true)),
-            'peak_memory' => size_format(memory_get_peak_usage(true))
+            'memory_usage' => $memory_usage,
+            'peak_memory' => $peak_memory
         ], $additional_context);
 
         return $this->log_debug(
@@ -178,13 +217,20 @@ trait Baserow_Logger_Trait {
         string $replacement = '',
         string $version_deprecated = ''
     ): bool {
+        if (!did_action('plugins_loaded')) {
+            return false;
+        }
+
         $message = sprintf('Deprecated feature used: %s', $feature);
         $context = [
             'feature' => $feature,
             'replacement' => $replacement,
-            'version_deprecated' => $version_deprecated,
-            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]
+            'version_deprecated' => $version_deprecated
         ];
+
+        if (function_exists('debug_backtrace')) {
+            $context['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
+        }
 
         return $this->log_warning($message, $context);
     }

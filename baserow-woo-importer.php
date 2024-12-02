@@ -24,6 +24,8 @@ class Baserow_Woo_Importer {
     private $product_importer;
     private $order_handler;
     private $settings;
+    private $product_ajax;
+    private $product_tracker;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
@@ -199,10 +201,20 @@ class Baserow_Woo_Importer {
     }
 
     private function initialize_components() {
+        // Initialize core components
         $this->api_handler = new Baserow_API_Handler();
         $this->settings = new Baserow_Settings();
         $this->product_importer = new Baserow_Product_Importer($this->api_handler);
         $this->order_handler = new Baserow_Order_Handler($this->api_handler);
+        
+        // Initialize product tracker
+        $this->product_tracker = new Baserow_Product_Tracker();
+        
+        // Initialize AJAX handlers
+        $this->product_ajax = new Baserow_Product_Ajax();
+        $this->product_ajax->set_dependencies($this->product_importer, $this->product_tracker);
+        
+        // Initialize admin last since it depends on other components
         $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
     }
 }

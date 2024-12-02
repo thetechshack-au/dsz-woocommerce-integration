@@ -169,40 +169,22 @@ class Baserow_Product_Validator {
      * @return true|WP_Error
      */
     private function validate_images(array $product_data): bool|WP_Error {
-        // Check main image URL
-        if (!empty($product_data['Image URL'])) {
-            if (!filter_var($product_data['Image URL'], FILTER_VALIDATE_URL)) {
-                return new WP_Error(
-                    'invalid_image_url',
-                    'Invalid main image URL'
-                );
-            }
-
-            $ext = strtolower(pathinfo($product_data['Image URL'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                return new WP_Error(
-                    'invalid_image_type',
-                    'Invalid main image type. Allowed types: jpg, jpeg, png, gif, webp'
-                );
-            }
-        }
-
-        // Check additional image URLs
-        for ($i = 2; $i <= 5; $i++) {
-            $field = "Image URL {$i}";
-            if (!empty($product_data[$field])) {
-                if (!filter_var($product_data[$field], FILTER_VALIDATE_URL)) {
+        for ($i = 1; $i <= 5; $i++) {
+            $image_key = "Image {$i}";
+            if (isset($product_data[$image_key]) && !empty($product_data[$image_key])) {
+                if (!filter_var($product_data[$image_key], FILTER_VALIDATE_URL)) {
                     return new WP_Error(
                         'invalid_image_url',
-                        sprintf('Invalid URL for %s', $field)
+                        sprintf('Invalid URL for %s', $image_key)
                     );
                 }
 
-                $ext = strtolower(pathinfo($product_data[$field], PATHINFO_EXTENSION));
+                // Validate image file extension
+                $ext = strtolower(pathinfo($product_data[$image_key], PATHINFO_EXTENSION));
                 if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
                     return new WP_Error(
                         'invalid_image_type',
-                        sprintf('Invalid image type for %s. Allowed types: jpg, jpeg, png, gif, webp', $field)
+                        sprintf('Invalid image type for %s. Allowed types: jpg, jpeg, png, gif, webp', $image_key)
                     );
                 }
             }

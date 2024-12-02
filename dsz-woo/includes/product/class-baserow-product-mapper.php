@@ -56,19 +56,15 @@ class Baserow_Product_Mapper {
                 return $validation_result;
             }
 
-            // Get prices with proper error handling
-            $regular_price = $this->get_price_value($baserow_data, 'RrpPrice');
-            $cost_price = $this->get_price_value($baserow_data, 'price');
-
             $product_data = [
                 'name' => $this->sanitize_text_field($baserow_data['Title']),
                 'status' => 'publish',
                 'catalog_visibility' => 'visible',
                 'sku' => $this->sanitize_text_field($baserow_data['SKU']),
-                'regular_price' => $regular_price,
-                'sale_price' => $cost_price,
+                'regular_price' => $this->sanitize_text_field($baserow_data['RrpPrice']),
+                'sale_price' => $this->sanitize_text_field($baserow_data['price']),
                 'description' => $this->sanitize_textarea_field($baserow_data['Description'] ?? ''),
-                'meta_data' => $this->prepare_meta_data($baserow_data, $cost_price),
+                'meta_data' => $this->prepare_meta_data($baserow_data),
                 'dimensions' => $this->prepare_dimensions($baserow_data),
                 'shipping_data' => $this->prepare_shipping_data($baserow_data),
                 'stock_data' => $this->prepare_stock_data($baserow_data),
@@ -83,7 +79,7 @@ class Baserow_Product_Mapper {
             return $product_data;
 
         } catch (Exception $e) {
-            $this->log_error("Error during product mapping: " . $e->getMessage());
+            $this->log_exception($e, 'Error during product mapping');
             return new WP_Error(
                 'mapping_error',
                 'Failed to map product data: ' . $e->getMessage()
@@ -92,45 +88,17 @@ class Baserow_Product_Mapper {
     }
 
     /**
-     * Get price value with proper formatting
-     *
-     * @param array $baserow_data
-     * @param string $field_name
-     * @return string
-     */
-    private function get_price_value(array $baserow_data, string $field_name): string {
-        if (!isset($baserow_data[$field_name])) {
-            return '';
-        }
-
-        $price = $baserow_data[$field_name];
-        
-        // Remove any currency symbols and spaces
-        $price = preg_replace('/[^0-9.]/', '', $price);
-        
-        // Ensure it's a valid number
-        if (!is_numeric($price)) {
-            return '';
-        }
-
-        // Format to 2 decimal places
-        return number_format((float)$price, 2, '.', '');
-    }
-
-    /**
      * Prepare meta data for WooCommerce product
      *
      * @param array $baserow_data
-     * @param string $cost_price
      * @return array
      */
-    private function prepare_meta_data(array $baserow_data, string $cost_price): array {
+    private function prepare_meta_data(array $baserow_data): array {
         return [
             '_direct_import' => $baserow_data['DI'] === 'Yes' ? 'Yes' : 'No',
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
-            '_cost_price' => $cost_price,
-            '_baserow_id' => $baserow_data['id'] ?? '',
-            '_last_baserow_sync' => current_time('mysql')
+            '_cost_price' => $baserow_data['price'],
+            '_baserow_id' => $baserow_data['id'] ?? ''
         ];
     }
 
@@ -142,10 +110,10 @@ class Baserow_Product_Mapper {
      */
     private function prepare_dimensions(array $baserow_data): array {
         return [
-            'length' => $baserow_data['Carton Length (cm)'] ?? '',
-            'width' => $baserow_data['Carton Width (cm)'] ?? '',
-            'height' => $baserow_data['Carton Height (cm)'] ?? '',
-            'weight' => $baserow_data['Weight (kg)'] ?? ''
+            'length' => isset($baserow_data['Carton Length (cm)']) ? $baserow_data['Carton Length (cm)'] : '',
+            'width' => isset($baserow_data['Carton Width (cm)']) ? $baserow_data['Carton Width (cm)'] : '',
+            'height' => isset($baserow_data['Carton Height (cm)']) ? $baserow_data['Carton Height (cm)'] : '',
+            'weight' => isset($baserow_data['Weight (kg)']) ? $baserow_data['Weight (kg)'] : ''
         ];
     }
 
@@ -157,8 +125,12 @@ class Baserow_Product_Mapper {
      */
     private function prepare_shipping_data(array $baserow_data): array {
         $shipping_data = [];
-        foreach ($this->shipping_data_fields as $field => $baserow_field) {
-            $shipping_data[$field] = $baserow_data[$baserow_field] ?? '';
+        foreach ($this->shipping_data_fields as $woo_key => $baserow_key) {
+            $shipping_data[$woo_key] = isset($baserow_data[$baserow_key]) 
+                ? ($baserow_key === 'bulky item' 
+                    ? ($baserow_data[$baserow_key] === 'Yes') 
+                    : $baserow_data[$baserow_key])
+                : '';
         }
         return $shipping_data;
     }
@@ -170,10 +142,11 @@ class Baserow_Product_Mapper {
      * @return array
      */
     private function prepare_stock_data(array $baserow_data): array {
+        $stock_qty = isset($baserow_data['Stock Qty']) ? intval($baserow_data['Stock Qty']) : 0;
         return [
             'manage_stock' => true,
-            'stock_quantity' => isset($baserow_data['Stock Qty']) ? (int)$baserow_data['Stock Qty'] : 0,
-            'stock_status' => isset($baserow_data['Stock Qty']) && (int)$baserow_data['Stock Qty'] > 0 ? 'instock' : 'outofstock',
+            'stock_quantity' => $stock_qty,
+            'stock_status' => $stock_qty > 0 ? 'instock' : 'outofstock',
             'backorders' => 'no'
         ];
     }
@@ -186,20 +159,11 @@ class Baserow_Product_Mapper {
      */
     private function prepare_image_data(array $baserow_data): array {
         $images = [];
-        
-        // Add main image if exists
-        if (!empty($baserow_data['Image URL'])) {
-            $images[] = $baserow_data['Image URL'];
-        }
-
-        // Add gallery images if they exist
-        for ($i = 2; $i <= 5; $i++) {
-            $field = "Image URL {$i}";
-            if (!empty($baserow_data[$field])) {
-                $images[] = $baserow_data[$field];
+        for ($i = 1; $i <= 5; $i++) {
+            if (!empty($baserow_data["Image {$i}"])) {
+                $images[] = $baserow_data["Image {$i}"];
             }
         }
-
         return $images;
     }
 }

@@ -16,6 +16,7 @@ define('BASEROW_IMPORTER_VERSION', '1.4.0');
 define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-09 14:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('BASEROW_USE_NEW_STRUCTURE', true);
 
 class Baserow_Woo_Importer {
     private $admin;
@@ -25,75 +26,8 @@ class Baserow_Woo_Importer {
     private $settings;
 
     public function __construct() {
-        // Only initialize on plugins_loaded to ensure WooCommerce is available
-        add_action('plugins_loaded', array($this, 'init'));
-    }
-
-    public function init() {
-        if (!class_exists('WooCommerce')) {
-            add_action('admin_notices', function() {
-                ?>
-                <div class="error">
-                    <p><?php _e('Baserow Importer requires WooCommerce to be installed and activated.', 'baserow-importer'); ?></p>
-                </div>
-                <?php
-            });
-            return;
-        }
-
-        $this->load_dependencies();
-        $this->initialize_components();
-        $this->setup_hooks();
-    }
-
-    private function load_dependencies() {
-        // Load traits first
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
-
-        // Core files
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
-
-        // Product-related files
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-importer.php';
-
-        // Category files
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
-
-        // Shipping files
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
-
-        // Order files
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/orders/class-baserow-order-handler.php';
-
-        // AJAX handlers
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
-
-        // Admin interface
-        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
-    }
-
-    private function initialize_components() {
-        $this->api_handler = new Baserow_API_Handler();
-        $this->settings = new Baserow_Settings();
-        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
-        $this->order_handler = new Baserow_Order_Handler($this->api_handler);
-        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
-    }
-
-    private function setup_hooks() {
         register_activation_hook(__FILE__, array($this, 'activate'));
+        add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
         add_action('admin_notices', array($this, 'show_version_info'));
     }
@@ -121,6 +55,13 @@ class Baserow_Woo_Importer {
         if (!class_exists('WooCommerce')) {
             deactivate_plugins(plugin_basename(__FILE__));
             wp_die('This plugin requires WooCommerce to be installed and activated.');
+        }
+
+        // Create log file if it doesn't exist
+        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
+        if (!file_exists($log_file)) {
+            touch($log_file);
+            chmod($log_file, 0666); // Make it writable
         }
 
         $this->create_tables();
@@ -194,6 +135,75 @@ class Baserow_Woo_Importer {
             array('woo_product_id' => $post_id),
             array('%d')
         );
+    }
+
+    public function init() {
+        if (!class_exists('WooCommerce')) {
+            add_action('admin_notices', function() {
+                ?>
+                <div class="error">
+                    <p><?php _e('Baserow Importer requires WooCommerce to be installed and activated.', 'baserow-importer'); ?></p>
+                </div>
+                <?php
+            });
+            return;
+        }
+
+        // Check log file permissions
+        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
+        if (!is_writable($log_file)) {
+            add_action('admin_notices', function() {
+                ?>
+                <div class="error">
+                    <p><?php _e('Baserow Importer log file is not writable. Please check permissions.', 'baserow-importer'); ?></p>
+                </div>
+                <?php
+            });
+        }
+
+        $this->load_dependencies();
+        $this->initialize_components();
+    }
+
+    private function load_dependencies() {
+        // Load core files first
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-admin.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-auth-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
+
+        // Load new modular components
+        if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
+            
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+            
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
+            
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
+            
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
+        }
+    }
+
+    private function initialize_components() {
+        $this->api_handler = new Baserow_API_Handler();
+        $this->settings = new Baserow_Settings();
+        $this->product_importer = new Baserow_Product_Importer($this->api_handler);
+        $this->order_handler = new Baserow_Order_Handler($this->api_handler);
+        $this->admin = new Baserow_Admin($this->api_handler, $this->product_importer, $this->settings);
     }
 }
 

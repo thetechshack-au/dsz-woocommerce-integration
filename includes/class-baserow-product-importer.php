@@ -30,7 +30,6 @@ class Baserow_Product_Importer {
     );
 
     public function __construct($api_handler) {
-        Baserow_Logger::debug("Initializing Product Importer");
         $this->api_handler = $api_handler;
         add_action('baserow_product_imported', array($this, 'update_shipping_zones'), 10, 2);
     }
@@ -40,118 +39,81 @@ class Baserow_Product_Importer {
             Baserow_Logger::info("Starting import for product ID: {$product_id}");
 
             if (!class_exists('WC_Product_Simple')) {
-                Baserow_Logger::error('WC_Product_Simple class not found. Is WooCommerce active?');
+                Baserow_Logger::error('WC_Product_Simple class not found');
                 return new WP_Error('woocommerce_not_loaded', 'WooCommerce not properly loaded');
             }
 
-            Baserow_Logger::debug("Fetching product data from API");
             $product_data = $this->api_handler->get_product($product_id);
             if (is_wp_error($product_data)) {
-                Baserow_Logger::error("Failed to get product data", [
-                    'error' => $product_data->get_error_message(),
-                    'product_id' => $product_id
-                ]);
+                Baserow_Logger::error("Failed to get product data: " . $product_data->get_error_message());
                 return $product_data;
             }
 
-            Baserow_Logger::debug("Product data received", [
-                'product_id' => $product_id,
-                'sku' => isset($product_data['SKU']) ? $product_data['SKU'] : 'Not set',
-                'title' => isset($product_data['Title']) ? $product_data['Title'] : 'Not set'
-            ]);
+            Baserow_Logger::debug("Product data received: " . print_r($product_data, true));
 
             // Create or update WooCommerce product
             $existing_product_id = wc_get_product_id_by_sku($product_data['SKU']);
             if ($existing_product_id) {
-                Baserow_Logger::info("Updating existing product", [
-                    'woo_id' => $existing_product_id,
-                    'sku' => $product_data['SKU']
-                ]);
+                Baserow_Logger::info("Updating existing product with ID: {$existing_product_id}");
                 $product = wc_get_product($existing_product_id);
             } else {
-                Baserow_Logger::info("Creating new product", [
-                    'sku' => $product_data['SKU']
-                ]);
+                Baserow_Logger::info("Creating new product");
                 $product = new WC_Product_Simple();
             }
 
             if (!$product) {
-                Baserow_Logger::error("Failed to create/get product object", [
-                    'sku' => $product_data['SKU']
-                ]);
+                Baserow_Logger::error("Failed to create/get product object");
                 return new WP_Error('product_creation_failed', 'Failed to create product');
             }
 
             // Set product data
-            Baserow_Logger::debug("Setting product data");
             $this->set_product_data($product, $product_data);
             
             // Save product
-            Baserow_Logger::debug("Saving product");
             $woo_product_id = $product->save();
             
             if (!$woo_product_id) {
-                Baserow_Logger::error("Failed to save product", [
-                    'sku' => $product_data['SKU']
-                ]);
+                Baserow_Logger::error("Failed to save product");
                 return new WP_Error('product_save_failed', 'Failed to save product');
             }
 
             // Set cost price using the 'price' field from Baserow
             if (!empty($product_data['price']) && is_numeric($product_data['price'])) {
                 update_post_meta($woo_product_id, '_cost_price', $product_data['price']);
-                Baserow_Logger::debug("Set cost price", [
-                    'price' => $product_data['price']
-                ]);
+                Baserow_Logger::debug("Set cost price from 'price' field: " . $product_data['price']);
             }
 
             // Set product source taxonomy
             wp_set_object_terms($woo_product_id, 'DSZ', 'product_source', false);
-            Baserow_Logger::debug("Set product source taxonomy to 'DSZ'");
+            Baserow_Logger::debug("Set product source taxonomy term to 'DSZ'");
 
-            Baserow_Logger::info("Product saved successfully", [
-                'woo_id' => $woo_product_id,
-                'sku' => $product_data['SKU']
-            ]);
+            Baserow_Logger::info("Product saved with ID: {$woo_product_id}");
 
             // Handle images
-            Baserow_Logger::debug("Starting image handling");
             $image_result = $this->handle_product_images($product, $product_data, $woo_product_id);
-            Baserow_Logger::debug("Image handling completed", [
-                'result' => $image_result
-            ]);
+            Baserow_Logger::debug("Image handling result: " . print_r($image_result, true));
 
             // Track the imported product
-            Baserow_Logger::debug("Tracking imported product");
             $this->track_imported_product($product_data['id'], $woo_product_id);
 
             // Trigger shipping zones update
-            Baserow_Logger::debug("Triggering shipping zones update");
             do_action('baserow_product_imported', $product_data, $woo_product_id);
 
-            Baserow_Logger::info("Product import completed successfully", [
-                'woo_id' => $woo_product_id,
-                'sku' => $product_data['SKU']
-            ]);
+            Baserow_Logger::info("Product import completed successfully");
             return array(
                 'success' => true,
                 'product_id' => $woo_product_id
             );
 
         } catch (Exception $e) {
-            Baserow_Logger::error("Exception during product import", [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Baserow_Logger::error("Exception during product import: " . $e->getMessage());
             return new WP_Error('import_failed', $e->getMessage());
         }
     }
 
     private function set_product_data($product, $product_data) {
         try {
-            Baserow_Logger::debug("Setting basic product data", [
-                'sku' => $product_data['SKU']
-            ]);
+            Baserow_Logger::debug("Setting basic product data");
             
             $product->set_name($product_data['Title']);
             $product->set_status('publish');
@@ -165,20 +127,15 @@ class Baserow_Product_Importer {
             $product->set_price($sale_price);
             $product->set_description($product_data['Description']);
 
-            Baserow_Logger::debug("Set prices", [
-                'regular' => $regular_price,
-                'sale' => $sale_price
-            ]);
-
             // Set Direct Import flag
             $product->update_meta_data('_direct_import', $product_data['DI'] === 'Yes' ? 'Yes' : 'No');
 
             // Set Free Shipping flag
-            $product->update_meta_data('_free_shipping', $product_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No');
+            $product->update_meta_data('_free_shipping', isset($product_data['Free Shipping']) && $product_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No');
 
             // Set shipping data
             $shipping_data = array(
-                'is_bulky_item' => $product_data['bulky item'] === 'Yes',
+                'is_bulky_item' => isset($product_data['bulky item']) && $product_data['bulky item'] === 'Yes',
                 'ACT' => $product_data['ACT'],
                 'NSW_M' => $product_data['NSW_M'],
                 'NSW_R' => $product_data['NSW_R'],
@@ -199,30 +156,23 @@ class Baserow_Product_Importer {
             );
             $product->update_meta_data('_dsz_shipping_data', $shipping_data);
 
-            Baserow_Logger::debug("Set shipping data");
-
+            Baserow_Logger::debug("Setting categories");
             // Set categories
             if (!empty($product_data['Category'])) {
-                Baserow_Logger::debug("Setting categories", [
-                    'category' => $product_data['Category']
-                ]);
                 $category_ids = $this->create_or_get_categories($product_data['Category']);
                 $product->set_category_ids($category_ids);
             }
 
+            Baserow_Logger::debug("Setting stock information");
             // Set stock
-            $stock_qty = is_numeric($product_data['Stock Qty']) ? intval($product_data['Stock Qty']) : 0;
             $product->set_manage_stock(true);
+            $stock_qty = is_numeric($product_data['Stock Qty']) ? intval($product_data['Stock Qty']) : 0;
             $product->set_stock_quantity($stock_qty);
             $stock_status = ($stock_qty > 0) ? 'instock' : 'outofstock';
             $product->set_stock_status($stock_status);
             $product->set_backorders('no');
 
-            Baserow_Logger::debug("Set stock information", [
-                'quantity' => $stock_qty,
-                'status' => $stock_status
-            ]);
-
+            Baserow_Logger::debug("Setting dimensions");
             // Set dimensions
             if (!empty($product_data['Weight (kg)']) && is_numeric($product_data['Weight (kg)'])) {
                 $product->set_weight($product_data['Weight (kg)']);
@@ -237,16 +187,149 @@ class Baserow_Product_Importer {
                 $product->set_height($product_data['Carton Height (cm)']);
             }
 
-            Baserow_Logger::debug("Set dimensions");
             Baserow_Logger::info("Product data set successfully");
         } catch (Exception $e) {
-            Baserow_Logger::error("Error setting product data", [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Baserow_Logger::error("Error setting product data: " . $e->getMessage());
             throw $e;
         }
     }
 
-    // ... rest of the class methods remain the same ...
+    private function create_or_get_categories($category_path) {
+        Baserow_Logger::debug("Processing categories: {$category_path}");
+        
+        $categories = explode('>', $category_path);
+        $categories = array_map('trim', $categories);
+        $parent_id = 0;
+        $category_ids = array();
+
+        foreach ($categories as $category_name) {
+            $term = term_exists($category_name, 'product_cat', $parent_id);
+            
+            if (!$term) {
+                Baserow_Logger::info("Creating new category: {$category_name}");
+                $term = wp_insert_term($category_name, 'product_cat', array('parent' => $parent_id));
+            }
+            
+            if (!is_wp_error($term)) {
+                $parent_id = $term['term_id'];
+                $category_ids[] = $term['term_id'];
+            } else {
+                Baserow_Logger::error("Error creating category {$category_name}: " . $term->get_error_message());
+            }
+        }
+
+        return $category_ids;
+    }
+
+    private function handle_product_images($product, $product_data, $product_id) {
+        Baserow_Logger::debug("Starting image handling for product ID: {$product_id}");
+        
+        $image_ids = array();
+        for ($i = 1; $i <= 5; $i++) {
+            if (!empty($product_data["Image {$i}"])) {
+                Baserow_Logger::debug("Processing image {$i}: " . $product_data["Image {$i}"]);
+                $image_id = $this->handle_single_image($product_data["Image {$i}"], $product_id);
+                if ($image_id) {
+                    $image_ids[] = $image_id;
+                }
+            }
+        }
+
+        if (!empty($image_ids)) {
+            Baserow_Logger::debug("Setting product images: " . print_r($image_ids, true));
+            $product->set_image_id($image_ids[0]);
+            if (count($image_ids) > 1) {
+                array_shift($image_ids);
+                $product->set_gallery_image_ids($image_ids);
+            }
+            $product->save();
+        }
+
+        return $image_ids;
+    }
+
+    private function handle_single_image($image_url, $product_id) {
+        Baserow_Logger::debug("Downloading image: {$image_url}");
+        
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        $temp_file = download_url($image_url);
+        if (is_wp_error($temp_file)) {
+            Baserow_Logger::error("Failed to download image: " . $temp_file->get_error_message());
+            return false;
+        }
+
+        $file_array = array(
+            'name' => basename($image_url),
+            'tmp_name' => $temp_file
+        );
+
+        $id = media_handle_sideload($file_array, $product_id);
+        @unlink($temp_file);
+
+        if (is_wp_error($id)) {
+            Baserow_Logger::error("Failed to handle image upload: " . $id->get_error_message());
+            return false;
+        }
+
+        Baserow_Logger::info("Image uploaded successfully with ID: {$id}");
+        return $id;
+    }
+
+    private function track_imported_product($baserow_id, $woo_product_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'baserow_imported_products';
+
+        Baserow_Logger::debug("Tracking imported product - Baserow ID: {$baserow_id}, WooCommerce ID: {$woo_product_id}");
+
+        $result = $wpdb->replace(
+            $table_name,
+            array(
+                'baserow_id' => $baserow_id,
+                'woo_product_id' => $woo_product_id,
+                'last_sync' => current_time('mysql')
+            ),
+            array('%s', '%d', '%s')
+        );
+
+        if ($result === false) {
+            Baserow_Logger::error("Failed to track imported product: " . $wpdb->last_error);
+        } else {
+            Baserow_Logger::info("Successfully tracked imported product");
+        }
+    }
+
+    public function update_shipping_zones($product_data, $product_id) {
+        Baserow_Logger::info("Updating shipping zones");
+
+        try {
+            // Get current zone map
+            $zone_map = get_option('dsz_zone_map', array());
+            if (empty($zone_map)) {
+                $zone_map = array(
+                    'zone_map' => $this->shipping_zones,
+                    'postcode_map' => array()
+                );
+            }
+
+            // Update postcode map for regional areas
+            foreach ($this->regional_postcodes as $zone => $ranges) {
+                foreach ($ranges as $range) {
+                    list($start, $end) = explode('-', $range);
+                    for ($postcode = intval($start); $postcode <= intval($end); $postcode++) {
+                        $zone_map['postcode_map'][str_pad($postcode, 4, '0', STR_PAD_LEFT)] = $zone;
+                    }
+                }
+            }
+
+            // Update WordPress option
+            update_option('dsz_zone_map', $zone_map);
+            Baserow_Logger::info("Shipping zones updated successfully");
+
+        } catch (Exception $e) {
+            Baserow_Logger::error("Error updating shipping zones: " . $e->getMessage());
+        }
+    }
 }

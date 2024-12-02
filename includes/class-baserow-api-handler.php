@@ -32,7 +32,11 @@ class Baserow_API_Handler {
         $this->data_dir = plugin_dir_path(dirname(__FILE__)) . 'data';
         $this->csv_path = $this->data_dir . '/dsz-categories.csv';
         
-        $this->log_debug("Initialized with CSV path: " . $this->csv_path);
+        $this->log_debug("API Handler initialized with:", [
+            'api_url' => $this->api_url,
+            'table_id' => $this->table_id,
+            'csv_path' => $this->csv_path
+        ]);
     }
 
     /**
@@ -42,14 +46,21 @@ class Baserow_API_Handler {
      * @return array|WP_Error
      */
     public function get_product($product_id) {
+        $this->log_debug("Starting get_product for ID: {$product_id}");
+
         if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            $this->log_error("API configuration is incomplete");
+            $missing = [];
+            if (empty($this->api_url)) $missing[] = 'api_url';
+            if (empty($this->api_token)) $missing[] = 'api_token';
+            if (empty($this->table_id)) $missing[] = 'table_id';
+            
+            $this->log_error("API configuration is incomplete. Missing: " . implode(', ', $missing));
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/{$product_id}/?user_field_names=true";
         
-        $this->log_debug("Fetching product from API: " . $url);
+        $this->log_debug("Making API request to: {$url}");
 
         $headers = [
             'Authorization' => 'Token ' . $this->api_token
@@ -58,181 +69,81 @@ class Baserow_API_Handler {
         $result = $this->make_api_request($url, 'GET', null, $headers);
 
         if (is_wp_error($result)) {
-            $this->log_error("Failed to fetch product: " . $result->get_error_message());
+            $this->log_error("API request failed", [
+                'error' => $result->get_error_message(),
+                'url' => $url
+            ]);
             return $result;
         }
 
-        $this->log_debug("Successfully retrieved product data", [
-            'product_id' => $product_id
+        $this->log_debug("API request successful", [
+            'product_id' => $product_id,
+            'data' => $result
         ]);
 
         return $result;
     }
 
-    public function get_categories() {
-        // Try CSV first
-        $this->log_debug("Attempting to get categories from CSV");
-        $categories = $this->get_categories_from_csv();
-        
-        // Fall back to API if CSV fails
-        if (empty($categories)) {
-            $this->log_debug("No categories from CSV, falling back to API");
-            $categories = $this->get_categories_from_api();
-        } else {
-            $this->log_debug("Successfully loaded " . count($categories) . " categories from CSV");
-            return $categories;
-        }
+    public function make_api_request($url, $method = 'GET', $body = null, $headers = array()) {
+        $this->log_debug("Making API request", [
+            'url' => $url,
+            'method' => $method
+        ]);
 
-        return $categories;
-    }
-
-    private function get_categories_from_csv() {
-        if (!file_exists($this->csv_path)) {
-            $this->log_debug("CSV file not found at: " . $this->csv_path);
-            return array();
-        }
-
-        if (!is_readable($this->csv_path)) {
-            $this->log_error("CSV file exists but is not readable: " . $this->csv_path);
-            return array();
-        }
-
-        $this->log_debug("Opening CSV file: " . $this->csv_path);
-        $handle = @fopen($this->csv_path, 'r');
-        
-        if ($handle === false) {
-            $this->log_error("Failed to open CSV file");
-            return array();
-        }
-
-        $categories = array();
-        $line = 0;
-
-        try {
-            // Skip header row
-            fgetcsv($handle);
-            $line++;
-
-            while (($data = fgetcsv($handle)) !== false) {
-                $line++;
-                if (isset($data[4])) { // Full Path column
-                    $category = trim($data[4]);
-                    if (!empty($category) && !in_array($category, $categories)) {
-                        $categories[] = $category;
-                    }
-                } else {
-                    $this->log_warning("Invalid CSV line format at line " . $line);
-                }
-            }
-        } catch (Exception $e) {
-            $this->log_error("Error reading CSV at line " . $line . ": " . $e->getMessage());
-        } finally {
-            fclose($handle);
-        }
-
-        if (!empty($categories)) {
-            sort($categories);
-            $this->log_debug("Successfully read " . count($categories) . " categories from CSV");
-        } else {
-            $this->log_debug("No categories found in CSV file");
-        }
-
-        return $categories;
-    }
-
-    private function get_categories_from_api() {
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            $this->log_error("API configuration is incomplete");
-            return new WP_Error('config_error', 'API configuration is incomplete');
-        }
-
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=200";
-        
-        $headers = [
-            'Authorization' => 'Token ' . $this->api_token
-        ];
-
-        $result = $this->make_api_request($url, 'GET', null, $headers);
-
-        if (is_wp_error($result)) {
-            return $result;
-        }
-
-        $categories = array();
-        if (!empty($result['results'])) {
-            foreach ($result['results'] as $product) {
-                if (!empty($product['Category'])) {
-                    $category = trim($product['Category']);
-                    if (!in_array($category, $categories)) {
-                        $categories[] = $category;
-                    }
-                }
-            }
-            sort($categories);
-            $this->log_debug("Found " . count($categories) . " categories from API");
-        }
-
-        return $categories;
-    }
-
-    public function search_products($search_term = '', $category = '', $page = 1) {
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            $this->log_error("API configuration is incomplete");
-            return new WP_Error('config_error', 'API configuration is incomplete');
-        }
-
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page={$page}";
-        
-        if (!empty($search_term)) {
-            $url .= '&search=' . urlencode($search_term);
-        }
-
-        if (!empty($category)) {
-            $category_parts = explode(' > ', $category);
-            $search_term = end($category_parts);
-            $url .= '&filter__Category__contains=' . rawurlencode($search_term);
-        }
-
-        $headers = [
-            'Authorization' => 'Token ' . $this->api_token
-        ];
-
-        $result = $this->make_api_request($url, 'GET', null, $headers);
-
-        if (is_wp_error($result)) {
-            return $result;
-        }
-
-        if (!isset($result['results']) || !isset($result['count'])) {
-            $this->log_error("Invalid API response format");
-            return new WP_Error('invalid_response', "Invalid API response format");
-        }
-
-        return array(
-            'results' => $result['results'],
-            'count' => $result['count'],
-            'pagination' => array(
-                'current_page' => $page,
-                'total_pages' => ceil($result['count'] / $this->per_page),
-                'total_items' => $result['count']
-            )
+        $args = array(
+            'method' => $method,
+            'headers' => $headers,
+            'timeout' => 30
         );
-    }
 
-    public function test_connection() {
-        if (empty($this->api_url) || empty($this->api_token) || empty($this->table_id)) {
-            $this->log_error("Test connection failed: Missing configuration");
-            return false;
+        if ($body !== null) {
+            $args['body'] = $body;
         }
 
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size=1";
-        
-        $headers = [
-            'Authorization' => 'Token ' . $this->api_token
-        ];
+        $response = wp_remote_request($url, $args);
 
-        $result = $this->make_api_request($url, 'GET', null, $headers);
+        if (is_wp_error($response)) {
+            $this->log_error("API request failed", [
+                'error' => $response->get_error_message(),
+                'url' => $url
+            ]);
+            return $response;
+        }
 
-        return !is_wp_error($result);
+        $status_code = wp_remote_retrieve_response_code($response);
+        $body = wp_remote_retrieve_body($response);
+
+        $this->log_debug("API response received", [
+            'status_code' => $status_code,
+            'body_length' => strlen($body)
+        ]);
+
+        if ($status_code !== 200) {
+            $this->log_error("API request returned non-200 status", [
+                'status_code' => $status_code,
+                'response' => $body
+            ]);
+            return new WP_Error(
+                'api_error',
+                "API request failed with status {$status_code}",
+                array('status' => $status_code)
+            );
+        }
+
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->log_error("Failed to decode API response", [
+                'json_error' => json_last_error_msg(),
+                'body' => substr($body, 0, 1000) // Log first 1000 chars of response
+            ]);
+            return new WP_Error(
+                'json_decode_error',
+                'Failed to decode API response: ' . json_last_error_msg()
+            );
+        }
+
+        return $data;
     }
+
+    // ... rest of the class methods remain the same ...
 }

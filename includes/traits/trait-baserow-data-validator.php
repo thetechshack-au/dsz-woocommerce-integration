@@ -12,13 +12,19 @@ trait Baserow_Data_Validator_Trait {
     /** @var array */
     protected $validation_rules = [];
 
-    /** @var array */
-    protected $zone_mapping = [
-        'ACT', 'NSW_M', 'NSW_R', 'NT_M', 'NT_R',
-        'QLD_M', 'QLD_R', 'REMOTE', 'SA_M', 'SA_R',
-        'TAS_M', 'TAS_R', 'VIC_M', 'VIC_R', 'WA_M',
-        'WA_R', 'NZ'
-    ];
+    /**
+     * Get valid shipping zone codes
+     *
+     * @return array
+     */
+    protected function get_valid_shipping_zones(): array {
+        return [
+            'ACT', 'NSW_M', 'NSW_R', 'NT_M', 'NT_R',
+            'QLD_M', 'QLD_R', 'REMOTE', 'SA_M', 'SA_R',
+            'TAS_M', 'TAS_R', 'VIC_M', 'VIC_R', 'WA_M',
+            'WA_R', 'NZ'
+        ];
+    }
 
     /**
      * Validate product data
@@ -144,7 +150,7 @@ trait Baserow_Data_Validator_Trait {
         }
 
         // Validate shipping zones
-        foreach ($this->zone_mapping as $zone) {
+        foreach ($this->get_valid_shipping_zones() as $zone) {
             if (isset($data[$zone]) && !empty($data[$zone])) {
                 if (!is_numeric($data[$zone])) {
                     $this->log_error('Invalid shipping zone value', [
@@ -218,7 +224,7 @@ trait Baserow_Data_Validator_Trait {
             );
         }
 
-        $required_fields = array_merge(['is_bulky_item'], $this->zone_mapping);
+        $required_fields = array_merge(['is_bulky_item'], $this->get_valid_shipping_zones());
 
         foreach ($required_fields as $field) {
             if (!isset($data[$field])) {

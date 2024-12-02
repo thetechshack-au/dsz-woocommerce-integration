@@ -88,10 +88,10 @@ class Baserow_Product_Importer {
                 return new WP_Error('product_save_failed', 'Failed to save product');
             }
 
-            // Set cost price using the 'Price' field from Baserow
-            if (!empty($product_data['Price']) && is_numeric($product_data['Price'])) {
-                update_post_meta($woo_product_id, '_cost_price', $product_data['Price']);
-                Baserow_Logger::debug("Set cost price from 'Price' field: " . $product_data['Price']);
+            // Set cost price using the 'price' field from Baserow
+            if (!empty($product_data['price']) && is_numeric($product_data['price'])) {
+                update_post_meta($woo_product_id, '_cost_price', $product_data['price']);
+                Baserow_Logger::debug("Set cost price from 'price' field: " . $product_data['price']);
             }
 
             // Set product source taxonomy
@@ -103,9 +103,8 @@ class Baserow_Product_Importer {
             // Handle images
             $image_urls = [];
             for ($i = 1; $i <= 5; $i++) {
-                $field = "Image URL" . ($i > 1 ? " {$i}" : "");
-                if (!empty($product_data[$field])) {
-                    $image_urls[] = $product_data[$field];
+                if (!empty($product_data["Image {$i}"])) {
+                    $image_urls[] = $product_data["Image {$i}"];
                 }
             }
             
@@ -147,7 +146,7 @@ class Baserow_Product_Importer {
             
             // Set prices
             $regular_price = is_numeric($product_data['RrpPrice']) ? $product_data['RrpPrice'] : 0;
-            $sale_price = is_numeric($product_data['Price']) ? $product_data['Price'] : 0;
+            $sale_price = is_numeric($product_data['price']) ? $product_data['price'] : 0;
             $product->set_regular_price($regular_price);
             $product->set_price($sale_price);
             $product->set_description($product_data['Description']);

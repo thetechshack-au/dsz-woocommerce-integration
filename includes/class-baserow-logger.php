@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
  */
 class Baserow_Logger {
     /** @var bool */
-    private static $log_enabled = true;
+    private static $log_enabled = false;
     
     /** @var string */
     private static $log_file;
@@ -37,28 +37,47 @@ class Baserow_Logger {
      * @return void
      */
     public static function init(): void {
-        if (self::$init_complete) {
+        if (self::$init_complete || !function_exists('wp_upload_dir')) {
             return;
         }
 
         try {
             self::setup_log_directory();
             self::check_permissions();
-            add_action('admin_notices', [__CLASS__, 'display_write_permission_error']);
             
-            // Add log rotation check
-            add_action('admin_init', [__CLASS__, 'maybe_rotate_log']);
+            if (did_action('init')) {
+                self::setup_hooks();
+            } else {
+                add_action('init', [__CLASS__, 'setup_hooks']);
+            }
             
             self::$init_complete = true;
+            self::$log_enabled = true;
         } catch (Exception $e) {
             self::$log_enabled = false;
-            add_action('admin_notices', function() use ($e) {
-                printf(
-                    '<div class="notice notice-error"><p>%s</p></div>',
-                    esc_html(sprintf('Baserow Logger initialization failed: %s', $e->getMessage()))
-                );
-            });
+            if (is_admin()) {
+                add_action('admin_notices', function() use ($e) {
+                    printf(
+                        '<div class="notice notice-error"><p>%s</p></div>',
+                        esc_html(sprintf('Baserow Logger initialization failed: %s', $e->getMessage()))
+                    );
+                });
+            }
         }
+    }
+
+    /**
+     * Set up hooks
+     *
+     * @return void
+     */
+    public static function setup_hooks(): void {
+        if (!self::$log_enabled) {
+            return;
+        }
+
+        add_action('admin_notices', [__CLASS__, 'display_write_permission_error']);
+        add_action('admin_init', [__CLASS__, 'maybe_rotate_log']);
     }
 
     /**
@@ -68,7 +87,15 @@ class Baserow_Logger {
      * @return void
      */
     private static function setup_log_directory(): void {
+        if (!function_exists('wp_upload_dir')) {
+            throw new Exception('WordPress not fully loaded');
+        }
+
         $upload_dir = wp_upload_dir();
+        if (isset($upload_dir['error']) && $upload_dir['error'] !== false) {
+            throw new Exception('Failed to get WordPress upload directory');
+        }
+
         self::$log_dir = trailingslashit($upload_dir['basedir']) . 'baserow-importer/logs';
         self::$log_file = trailingslashit(self::$log_dir) . 'baserow-importer.log';
 
@@ -87,10 +114,15 @@ class Baserow_Logger {
      * @return bool
      */
     private static function check_permissions(): bool {
+        if (!self::$log_dir || !self::$log_file) {
+            return false;
+        }
+
         if (!is_writable(self::$log_dir) || !is_writable(self::$log_file)) {
             self::$log_enabled = false;
             return false;
         }
+
         self::$log_enabled = true;
         return true;
     }
@@ -118,7 +150,7 @@ class Baserow_Logger {
      * @return void
      */
     public static function maybe_rotate_log(): void {
-        if (!self::$log_enabled || !file_exists(self::$log_file)) {
+        if (!self::$log_enabled || !self::$log_file || !file_exists(self::$log_file)) {
             return;
         }
 
@@ -145,11 +177,11 @@ class Baserow_Logger {
      * @return bool
      */
     public static function log($message, string $level = 'info', array $context = []): bool {
-        if (!isset(self::$log_file) || !self::$init_complete) {
+        if (!self::$init_complete && did_action('plugins_loaded')) {
             self::init();
         }
 
-        if (!self::check_permissions() || !in_array($level, self::$valid_levels)) {
+        if (!self::$log_enabled || !in_array($level, self::$valid_levels)) {
             return false;
         }
 
@@ -257,23 +289,20 @@ class Baserow_Logger {
 
     // Getter methods
     public static function get_log_file(): string {
-        if (!isset(self::$log_file)) {
+        if (!self::$init_complete && did_action('plugins_loaded')) {
             self::init();
         }
-        return self::$log_file;
+        return self::$log_file ?? '';
     }
 
     public static function get_log_dir(): string {
-        if (!isset(self::$log_dir)) {
+        if (!self::$init_complete && did_action('plugins_loaded')) {
             self::init();
         }
-        return self::$log_dir;
+        return self::$log_dir ?? '';
     }
 
     public static function is_logging_enabled(): bool {
         return self::$log_enabled;
     }
 }
-
-// Initialize the logger
-Baserow_Logger::init();

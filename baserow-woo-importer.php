@@ -16,6 +16,7 @@ define('BASEROW_IMPORTER_VERSION', '1.4.0');
 define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-09 14:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('BASEROW_USE_NEW_STRUCTURE', true);
 
 class Baserow_Woo_Importer {
     private $admin;
@@ -57,7 +58,12 @@ class Baserow_Woo_Importer {
         }
 
         // Create log file if it doesn't exist
-        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
+        $log_dir = wp_upload_dir()['basedir'] . '/baserow-importer/logs';
+        if (!file_exists($log_dir)) {
+            wp_mkdir_p($log_dir);
+        }
+
+        $log_file = $log_dir . '/baserow-importer.log';
         if (!file_exists($log_file)) {
             touch($log_file);
             chmod($log_file, 0666); // Make it writable
@@ -149,7 +155,7 @@ class Baserow_Woo_Importer {
         }
 
         // Check log file permissions
-        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
+        $log_file = wp_upload_dir()['basedir'] . '/baserow-importer/logs/baserow-importer.log';
         if (!is_writable($log_file)) {
             add_action('admin_notices', function() {
                 ?>
@@ -165,7 +171,12 @@ class Baserow_Woo_Importer {
     }
 
     private function load_dependencies() {
-        // Load core files first
+        // Load traits first
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
+
+        // Load core files
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-settings.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-api-handler.php';
@@ -174,27 +185,24 @@ class Baserow_Woo_Importer {
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-product-importer.php';
         require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-order-handler.php';
 
-        // Load new modular components
-        if (defined('BASEROW_USE_NEW_STRUCTURE') && BASEROW_USE_NEW_STRUCTURE) {
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-logger.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-api-request.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/traits/trait-baserow-data-validator.php';
-            
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
-            
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
-            
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
-            
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
-            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
-        }
+        // Load product-related files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-mapper.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+
+        // Load shipping-related files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
+
+        // Load category-related files
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/categories/class-baserow-category-manager.php';
+
+        // Load AJAX handlers
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-product-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-shipping-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-category-ajax.php';
+        require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/ajax/class-baserow-order-ajax.php';
     }
 
     private function initialize_components() {

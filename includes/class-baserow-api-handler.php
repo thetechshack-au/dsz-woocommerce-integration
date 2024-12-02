@@ -43,7 +43,7 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
-        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/rows/{$product_id}/?user_field_names=true";
+        $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/{$product_id}/?user_field_names=true";
         
         $this->log_debug("Fetching product from API: " . $url);
 
@@ -58,28 +58,8 @@ class Baserow_API_Handler {
             return $result;
         }
 
-        // Validate required fields
-        $required_fields = ['id', 'SKU', 'Title', 'Price', 'RrpPrice'];
-        $field_types = [
-            'id' => 'integer',
-            'SKU' => 'string',
-            'Title' => 'string',
-            'Price' => 'string',  // Baserow returns numbers as strings
-            'RrpPrice' => 'string'
-        ];
-
-        $validation = $this->validate_api_response($result, $required_fields, $field_types);
-        if (is_wp_error($validation)) {
-            $this->log_error("Invalid product data received: " . $validation->get_error_message(), [
-                'product_id' => $product_id,
-                'response' => $result
-            ]);
-            return $validation;
-        }
-
         $this->log_debug("Successfully retrieved product data", [
-            'product_id' => $product_id,
-            'sku' => $result['SKU']
+            'product_id' => $product_id
         ]);
 
         return $result;

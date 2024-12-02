@@ -7,11 +7,19 @@ class Baserow_Admin {
     private $api_handler;
     private $product_importer;
     private $settings;
+    private $ajax_handler;
+    private $product_tracker;
 
     public function __construct($api_handler, $product_importer, $settings) {
         $this->api_handler = $api_handler;
         $this->product_importer = $product_importer;
         $this->settings = $settings;
+        $this->product_tracker = new Baserow_Product_Tracker();
+        
+        // Initialize AJAX handler with dependencies
+        $this->ajax_handler = new Baserow_Product_Ajax();
+        $this->ajax_handler->set_dependencies($this->product_importer, $this->product_tracker);
+        
         $this->init_hooks();
     }
 
@@ -19,8 +27,6 @@ class Baserow_Admin {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('wp_ajax_test_baserow_connection', array($this, 'test_baserow_connection'));
         add_action('wp_ajax_search_products', array($this, 'search_products'));
-        add_action('wp_ajax_import_product', array($this, 'import_product'));
-        add_action('wp_ajax_delete_product', array($this, 'delete_product'));
         add_action('wp_ajax_get_categories', array($this, 'get_categories'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
     }
@@ -90,7 +96,7 @@ class Baserow_Admin {
         $this->render_import_results();
 
         // Create nonce
-        $nonce = wp_create_nonce('baserow_importer_nonce');
+        $nonce = wp_create_nonce('baserow_ajax_nonce');
         ?>
         <div class="wrap">
             <h1>Baserow Product Importer</h1>
@@ -165,7 +171,7 @@ class Baserow_Admin {
     }
 
     public function get_categories() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
         
         nocache_headers();
         
@@ -180,7 +186,7 @@ class Baserow_Admin {
     }
 
     public function search_products() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
         
         nocache_headers();
         
@@ -221,7 +227,7 @@ class Baserow_Admin {
                 }
 
                 // Process product data
-                $product['image_url'] = !empty($product['Image 1']) ? $product['Image 1'] : '';
+                $product['image_url'] = !empty($product['Image URL']) ? $product['Image URL'] : '';
                 
                 // Fix price field mapping
                 $product['price'] = !empty($product['RrpPrice']) ? 
@@ -248,5 +254,17 @@ class Baserow_Admin {
         wp_send_json_success($result);
     }
 
-    // ... [rest of the class methods remain unchanged]
+    public function test_baserow_connection() {
+        check_ajax_referer('baserow_ajax_nonce', 'nonce');
+        
+        nocache_headers();
+        
+        $result = $this->api_handler->test_connection();
+        
+        if ($result) {
+            wp_send_json_success(array('message' => 'Connection successful'));
+        } else {
+            wp_send_json_error(array('message' => 'Connection failed'));
+        }
+    }
 }

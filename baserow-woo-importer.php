@@ -32,6 +32,52 @@ class Baserow_Woo_Importer {
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
         add_action('admin_notices', array($this, 'show_version_info'));
+
+        // Register AJAX actions
+        add_action('wp_ajax_import_baserow_product', array($this, 'handle_import_product'));
+        add_action('wp_ajax_sync_baserow_product', array($this, 'handle_sync_product'));
+        add_action('wp_ajax_get_product_status', array($this, 'handle_get_product_status'));
+        add_action('wp_ajax_get_import_stats', array($this, 'handle_get_import_stats'));
+    }
+
+    public function handle_import_product() {
+        Baserow_Logger::debug("Main plugin handling import_baserow_product");
+        if ($this->product_ajax) {
+            $this->product_ajax->import_product();
+        } else {
+            Baserow_Logger::error("Product AJAX handler not initialized");
+            wp_send_json_error('Product AJAX handler not initialized');
+        }
+    }
+
+    public function handle_sync_product() {
+        Baserow_Logger::debug("Main plugin handling sync_baserow_product");
+        if ($this->product_ajax) {
+            $this->product_ajax->sync_product();
+        } else {
+            Baserow_Logger::error("Product AJAX handler not initialized");
+            wp_send_json_error('Product AJAX handler not initialized');
+        }
+    }
+
+    public function handle_get_product_status() {
+        Baserow_Logger::debug("Main plugin handling get_product_status");
+        if ($this->product_ajax) {
+            $this->product_ajax->get_product_status();
+        } else {
+            Baserow_Logger::error("Product AJAX handler not initialized");
+            wp_send_json_error('Product AJAX handler not initialized');
+        }
+    }
+
+    public function handle_get_import_stats() {
+        Baserow_Logger::debug("Main plugin handling get_import_stats");
+        if ($this->product_ajax) {
+            $this->product_ajax->get_import_stats();
+        } else {
+            Baserow_Logger::error("Product AJAX handler not initialized");
+            wp_send_json_error('Product AJAX handler not initialized');
+        }
     }
 
     public function show_version_info() {

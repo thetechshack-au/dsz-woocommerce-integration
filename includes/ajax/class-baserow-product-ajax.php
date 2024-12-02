@@ -10,6 +10,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
+
 class Baserow_Product_Ajax {
     use Baserow_Logger_Trait;
 
@@ -17,6 +19,7 @@ class Baserow_Product_Ajax {
     private $product_tracker;
 
     public function __construct() {
+        Baserow_Logger::debug("Product AJAX handler initialized");
         // Register AJAX actions
         add_action('wp_ajax_import_baserow_product', array($this, 'import_product'));
         add_action('wp_ajax_sync_baserow_product', array($this, 'sync_product'));
@@ -28,6 +31,7 @@ class Baserow_Product_Ajax {
      * Set dependencies
      */
     public function set_dependencies($product_importer, $product_tracker) {
+        Baserow_Logger::debug("Setting AJAX handler dependencies");
         $this->product_importer = $product_importer;
         $this->product_tracker = $product_tracker;
     }
@@ -36,43 +40,54 @@ class Baserow_Product_Ajax {
      * Handle product import AJAX request
      */
     public function import_product() {
-        $this->verify_ajax_nonce();
-
-        if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
-            return;
-        }
-
-        $product_id = isset($_POST['product_id']) ? sanitize_text_field($_POST['product_id']) : '';
+        Baserow_Logger::debug("AJAX import_product called");
         
-        if (empty($product_id)) {
-            wp_send_json_error('Product ID is required');
-            return;
-        }
-
-        $this->log_debug("Starting AJAX product import", array(
-            'product_id' => $product_id
-        ));
-
         try {
+            $this->verify_ajax_nonce();
+
+            if (!current_user_can('manage_woocommerce')) {
+                Baserow_Logger::error("Import failed: Insufficient permissions");
+                wp_send_json_error('Insufficient permissions');
+                return;
+            }
+
+            $product_id = isset($_POST['product_id']) ? sanitize_text_field($_POST['product_id']) : '';
+            
+            if (empty($product_id)) {
+                Baserow_Logger::error("Import failed: Product ID is required");
+                wp_send_json_error('Product ID is required');
+                return;
+            }
+
+            Baserow_Logger::debug("Starting AJAX product import", array(
+                'product_id' => $product_id
+            ));
+
+            if (!$this->product_importer) {
+                Baserow_Logger::error("Import failed: Product importer not initialized");
+                wp_send_json_error('Product importer not initialized');
+                return;
+            }
+
             $result = $this->product_importer->import_product($product_id);
 
             if (is_wp_error($result)) {
-                $this->log_error("AJAX import failed", array(
+                Baserow_Logger::error("AJAX import failed", array(
                     'error' => $result->get_error_message()
                 ));
                 wp_send_json_error($result->get_error_message());
                 return;
             }
 
-            $this->log_info("AJAX import successful", array(
+            Baserow_Logger::info("AJAX import successful", array(
                 'result' => $result
             ));
             wp_send_json_success($result);
 
         } catch (Exception $e) {
-            $this->log_error("AJAX import exception", array(
-                'error' => $e->getMessage()
+            Baserow_Logger::error("AJAX import exception", array(
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ));
             wp_send_json_error($e->getMessage());
         }
@@ -82,6 +97,8 @@ class Baserow_Product_Ajax {
      * Handle product sync AJAX request
      */
     public function sync_product() {
+        Baserow_Logger::debug("AJAX sync_product called");
+        
         $this->verify_ajax_nonce();
 
         if (!current_user_can('manage_woocommerce')) {
@@ -131,6 +148,8 @@ class Baserow_Product_Ajax {
      * Handle get product status AJAX request
      */
     public function get_product_status() {
+        Baserow_Logger::debug("AJAX get_product_status called");
+        
         $this->verify_ajax_nonce();
 
         if (!current_user_can('manage_woocommerce')) {
@@ -190,6 +209,8 @@ class Baserow_Product_Ajax {
      * Handle get import stats AJAX request
      */
     public function get_import_stats() {
+        Baserow_Logger::debug("AJAX get_import_stats called");
+        
         $this->verify_ajax_nonce();
 
         if (!current_user_can('manage_woocommerce')) {
@@ -214,6 +235,7 @@ class Baserow_Product_Ajax {
      */
     private function verify_ajax_nonce() {
         if (!check_ajax_referer('baserow_ajax_nonce', 'nonce', false)) {
+            Baserow_Logger::error("Invalid security token");
             wp_send_json_error('Invalid security token');
             exit;
         }

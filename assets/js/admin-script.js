@@ -292,6 +292,10 @@ jQuery(document).ready(function($) {
     }
 
     function importProduct(productId) {
+        console.log('Starting import for product:', productId);
+        console.log('AJAX URL:', ajaxUrl);
+        console.log('Nonce:', nonce);
+        
         showLoading();
         $.ajax({
             url: ajaxUrl,
@@ -301,17 +305,26 @@ jQuery(document).ready(function($) {
                 nonce: nonce,
                 product_id: productId
             },
+            beforeSend: function(xhr, settings) {
+                console.log('Sending AJAX request:', settings);
+            },
             success: function(response) {
+                console.log('Import response:', response);
                 hideLoading();
                 if (response.success && response.data.redirect) {
                     loadCategories().always(function() {
                         window.location.reload();
                     });
                 } else if (!response.success) {
-                    handleError(response.data.message);
+                    handleError(response.data.message || 'Import failed');
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('Import failed:', {
+                    status: status,
+                    error: error,
+                    response: xhr.responseText
+                });
                 handleError('Failed to import product. Please try again.');
             }
         });

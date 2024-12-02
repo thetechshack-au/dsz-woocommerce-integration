@@ -7,9 +7,7 @@ require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/class-baserow-logger.php';
 
 class Baserow_Product_Importer {
     private $api_handler;
-    private $product_validator;
-    private $image_handler;
-    private $zone_mapping = array(
+    private $shipping_zones = array(
         'NSW' => 'NSW_M',  // Metropolitan NSW
         'VIC' => 'VIC_M',  // Metropolitan VIC
         'QLD' => 'QLD_M',  // Metropolitan QLD
@@ -33,8 +31,6 @@ class Baserow_Product_Importer {
 
     public function __construct($api_handler) {
         $this->api_handler = $api_handler;
-        $this->product_validator = new Baserow_Product_Validator();
-        $this->image_handler = new Baserow_Product_Image_Handler();
         add_action('baserow_product_imported', array($this, 'update_shipping_zones'), 10, 2);
     }
 
@@ -54,13 +50,6 @@ class Baserow_Product_Importer {
             }
 
             Baserow_Logger::debug("Product data received: " . print_r($product_data, true));
-
-            // Validate product data
-            $validation_result = $this->product_validator->validate_complete_product($product_data);
-            if (is_wp_error($validation_result)) {
-                Baserow_Logger::error("Product validation failed: " . $validation_result->get_error_message());
-                return $validation_result;
-            }
 
             // Create or update WooCommerce product
             $existing_product_id = wc_get_product_id_by_sku($product_data['SKU']);
@@ -101,21 +90,8 @@ class Baserow_Product_Importer {
             Baserow_Logger::info("Product saved with ID: {$woo_product_id}");
 
             // Handle images
-            $image_urls = [];
-            for ($i = 1; $i <= 5; $i++) {
-                if (!empty($product_data["Image {$i}"])) {
-                    $image_urls[] = $product_data["Image {$i}"];
-                }
-            }
-            
-            if (!empty($image_urls)) {
-                $image_ids = $this->image_handler->process_product_images($image_urls, $woo_product_id);
-                $this->image_handler->set_product_images($product, $image_ids);
-                Baserow_Logger::debug("Image handling completed", [
-                    'urls' => $image_urls,
-                    'ids' => $image_ids
-                ]);
-            }
+            $image_result = $this->handle_product_images($product, $product_data, $woo_product_id);
+            Baserow_Logger::debug("Image handling result: " . print_r($image_result, true));
 
             // Track the imported product
             $this->track_imported_product($product_data['id'], $woo_product_id);
@@ -226,7 +202,7 @@ class Baserow_Product_Importer {
             $zone_map = get_option('dsz_zone_map', array());
             if (empty($zone_map)) {
                 $zone_map = array(
-                    'zone_map' => $this->zone_mapping,
+                    'zone_map' => $this->shipping_zones,
                     'postcode_map' => array()
                 );
             }
@@ -275,6 +251,63 @@ class Baserow_Product_Importer {
         }
 
         return $category_ids;
+    }
+
+    private function handle_product_images($product, $product_data, $product_id) {
+        Baserow_Logger::debug("Starting image handling for product ID: {$product_id}");
+        
+        $image_ids = array();
+        for ($i = 1; $i <= 5; $i++) {
+            if (!empty($product_data["Image {$i}"])) {
+                Baserow_Logger::debug("Processing image {$i}: " . $product_data["Image {$i}"]);
+                $image_id = $this->handle_single_image($product_data["Image {$i}"], $product_id);
+                if ($image_id) {
+                    $image_ids[] = $image_id;
+                }
+            }
+        }
+
+        if (!empty($image_ids)) {
+            Baserow_Logger::debug("Setting product images: " . print_r($image_ids, true));
+            $product->set_image_id($image_ids[0]);
+            if (count($image_ids) > 1) {
+                array_shift($image_ids);
+                $product->set_gallery_image_ids($image_ids);
+            }
+            $product->save();
+        }
+
+        return $image_ids;
+    }
+
+    private function handle_single_image($image_url, $product_id) {
+        Baserow_Logger::debug("Downloading image: {$image_url}");
+        
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        $temp_file = download_url($image_url);
+        if (is_wp_error($temp_file)) {
+            Baserow_Logger::error("Failed to download image: " . $temp_file->get_error_message());
+            return false;
+        }
+
+        $file_array = array(
+            'name' => basename($image_url),
+            'tmp_name' => $temp_file
+        );
+
+        $id = media_handle_sideload($file_array, $product_id);
+        @unlink($temp_file);
+
+        if (is_wp_error($id)) {
+            Baserow_Logger::error("Failed to handle image upload: " . $id->get_error_message());
+            return false;
+        }
+
+        Baserow_Logger::info("Image uploaded successfully with ID: {$id}");
+        return $id;
     }
 
     private function track_imported_product($baserow_id, $woo_product_id) {

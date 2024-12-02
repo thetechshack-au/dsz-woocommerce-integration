@@ -3,9 +3,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Ensure the logger trait is available
+// Ensure the traits are available
 if (!trait_exists('Baserow_Logger_Trait')) {
     require_once dirname(__FILE__) . '/traits/trait-baserow-logger.php';
+}
+
+if (!trait_exists('Baserow_API_Request_Trait')) {
+    require_once dirname(__FILE__) . '/traits/trait-baserow-api-request.php';
 }
 
 class Baserow_API_Handler {

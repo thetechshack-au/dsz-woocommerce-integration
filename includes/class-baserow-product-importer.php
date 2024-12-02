@@ -9,7 +9,7 @@ class Baserow_Product_Importer {
     private $api_handler;
     private $product_validator;
     private $image_handler;
-    private $shipping_zones = array(
+    private $zone_mapping = array(
         'NSW' => 'NSW_M',  // Metropolitan NSW
         'VIC' => 'VIC_M',  // Metropolitan VIC
         'QLD' => 'QLD_M',  // Metropolitan QLD
@@ -226,7 +226,7 @@ class Baserow_Product_Importer {
             $zone_map = get_option('dsz_zone_map', array());
             if (empty($zone_map)) {
                 $zone_map = array(
-                    'zone_map' => $this->shipping_zones,
+                    'zone_map' => $this->zone_mapping,
                     'postcode_map' => array()
                 );
             }

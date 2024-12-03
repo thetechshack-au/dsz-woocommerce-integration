@@ -27,8 +27,8 @@ class Baserow_Admin {
 
     public function add_admin_menu() {
         add_menu_page(
-            'Baserow Importer',
-            'Baserow Importer',
+            'DropshipZone Products',
+            'DropshipZone Products',
             'manage_options',
             'baserow-importer',
             array($this, 'render_admin_page'),
@@ -38,7 +38,7 @@ class Baserow_Admin {
 
         add_submenu_page(
             'baserow-importer',
-            'Baserow Settings',
+            'DropshipZone Settings',
             'Settings',
             'manage_options',
             'baserow-importer-settings',
@@ -87,7 +87,7 @@ class Baserow_Admin {
         $nonce = wp_create_nonce('baserow_importer_nonce');
         ?>
         <div class="wrap">
-            <h1>Baserow Product Importer</h1>
+            <h1>DropshipZone Products</h1>
 
             <div class="baserow-search-container">
                 <div class="baserow-search-controls" 
@@ -131,9 +131,9 @@ class Baserow_Admin {
     private function render_configuration_notice() {
         ?>
         <div class="wrap">
-            <h1>Baserow Product Importer</h1>
+            <h1>DropshipZone Products</h1>
             <div class="notice notice-warning">
-                <p>Please configure your Baserow settings before using the importer. 
+                <p>Please configure your DropshipZone settings before using the importer. 
                    <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">Go to Settings</a>
                 </p>
             </div>

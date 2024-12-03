@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
  * Enhanced logging functionality for the Baserow Importer plugin.
  * Implements PSR-3 inspired logging with WordPress integration.
  * 
- * @version 1.4.0
+ * @version 1.6.0
  */
 class Baserow_Logger {
     /** @var bool */

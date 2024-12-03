@@ -2,7 +2,7 @@
 /**
  * Class: Baserow Product Importer
  * Description: Main product import handler
- * Version: 1.4.0
+ * Version: 1.6.0
  * Last Updated: 2024-01-09 14:00:00 UTC
  */
 

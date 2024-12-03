@@ -2,7 +2,7 @@
 /**
  * Class: Baserow Product Tracker
  * Description: Handles tracking and logging of product imports and synchronization
- * Version: 1.4.0
+ * Version: 1.6.0
  * Last Updated: 2024-01-09 14:00:00 UTC
  */
 

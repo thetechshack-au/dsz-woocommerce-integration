@@ -1,4 +1,4 @@
-# DSZ WooCommerce Product Importer
+# DropshipZone Products
 
 A WordPress plugin that enables seamless integration between Baserow and WooCommerce, allowing you to import and synchronize products from your Baserow database into your WooCommerce store.
 
@@ -71,7 +71,7 @@ dsz-woocommerce-integration/
 
 ## Version
 
-Current Version: 1.2.19
+Current Version: 1.6.0
 
 ## Author
 

@@ -3,7 +3,7 @@
  * Class: Baserow Product Image Handler
  * Handles all product image operations.
  * 
- * @version 1.4.0
+ * @version 1.6.0
  */
 
 if (!defined('ABSPATH')) {

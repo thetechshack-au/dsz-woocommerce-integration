@@ -3,7 +3,7 @@
  * Trait: Baserow API Request
  * Provides standardized API request handling with advanced features.
  * 
- * @version 1.4.0
+ * @version 1.6.0
  */
 
 trait Baserow_API_Request_Trait {
@@ -133,7 +133,7 @@ trait Baserow_API_Request_Trait {
             'headers' => array_merge([
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-                'User-Agent' => 'Baserow-WooCommerce-Integration/1.4.0'
+                'User-Agent' => 'Baserow-WooCommerce-Integration/1.6.0'
             ], $headers),
             'timeout' => $options['timeout'],
             'sslverify' => $options['validate_ssl']

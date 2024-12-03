@@ -2,7 +2,7 @@
 /**
  * Class: Baserow Postcode Mapper
  * Description: Handles postcode mapping and validation
- * Version: 1.4.0
+ * Version: 1.6.0
  * Last Updated: 2024-01-09 14:00:00 UTC
  */
 

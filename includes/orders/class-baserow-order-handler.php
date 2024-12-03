@@ -2,7 +2,7 @@
 /**
  * Class: Baserow Order Handler
  * Description: Handles immediate order synchronization with Dropshipzone
- * Version: 1.4.0
+ * Version: 1.6.0
  * Last Updated: 2024-01-09 14:00:00 UTC
  */
 

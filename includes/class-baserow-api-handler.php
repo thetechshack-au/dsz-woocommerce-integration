@@ -247,12 +247,8 @@ class Baserow_API_Handler {
 
         // Add category filter if provided
         if (!empty($category)) {
-            // Extract the last part of the category path for contains search
-            $category_parts = explode(' > ', $category);
-            $search_term = end($category_parts);
-            
-            // Use contains filter with proper encoding
-            $url .= '&filter__Category__contains=' . rawurlencode($search_term);
+            // Use exact match for category
+            $url .= '&filter__Category__exact=' . rawurlencode($category);
             Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 

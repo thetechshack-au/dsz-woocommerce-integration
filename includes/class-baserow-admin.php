@@ -195,20 +195,6 @@ class Baserow_Admin {
             global $wpdb;
             $table_name = $wpdb->prefix . 'baserow_imported_products';
 
-            // Filter results by exact category match if category is provided
-            if (!empty($category)) {
-                $filtered_results = array();
-                foreach ($result['results'] as $product) {
-                    if ($product['Category'] === $category) {
-                        $filtered_results[] = $product;
-                    }
-                }
-                $result['results'] = $filtered_results;
-                $result['count'] = count($filtered_results);
-                $result['pagination']['total_items'] = $result['count'];
-                $result['pagination']['total_pages'] = ceil($result['count'] / 20);
-            }
-
             foreach ($result['results'] as &$product) {
                 $tracking_data = $wpdb->get_row($wpdb->prepare(
                     "SELECT woo_product_id FROM $table_name WHERE baserow_id = %s",

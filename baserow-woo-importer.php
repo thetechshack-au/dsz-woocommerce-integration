@@ -31,7 +31,6 @@ class Baserow_Woo_Importer {
         register_activation_hook(__FILE__, array($this, 'activate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
-        add_action('admin_notices', array($this, 'show_version_info'));
 
         // Register AJAX actions
         add_action('wp_ajax_import_baserow_product', array($this, 'handle_import_product'));
@@ -77,20 +76,6 @@ class Baserow_Woo_Importer {
         } else {
             Baserow_Logger::error("Product AJAX handler not initialized");
             wp_send_json_error('Product AJAX handler not initialized');
-        }
-    }
-
-    public function show_version_info() {
-        if (is_admin() && current_user_can('manage_options')) {
-            ?>
-            <div class="notice notice-info is-dismissible">
-                <p><?php printf(
-                    'DropshipZone Products Version: %s (Last Updated: %s)',
-                    BASEROW_IMPORTER_VERSION,
-                    BASEROW_IMPORTER_LAST_UPDATED
-                ); ?></p>
-            </div>
-            <?php
         }
     }
 

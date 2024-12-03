@@ -133,10 +133,10 @@ jQuery(document).ready(function($) {
             html += '<td>' + (product.Category || '') + '</td>';
             
             // Cost Price
-            html += '<td class="cost-price-col">$' + (product.cost_price || '0.00') + '</td>';
+            html += '<td class="cost-price-col">$' + (product.price || '0.00') + '</td>';
             
             // Sell Price
-            html += '<td class="sell-price-col">$' + (product.price || '0.00') + '</td>';
+            html += '<td class="sell-price-col">$' + (product.RrpPrice || '0.00') + '</td>';
             
             // Status Badges
             html += '<td><div class="status-badges">';

@@ -131,11 +131,11 @@ class Baserow_Product_Importer {
             $product->update_meta_data('_direct_import', $product_data['DI'] === 'Yes' ? 'Yes' : 'No');
 
             // Set Free Shipping flag
-            $product->update_meta_data('_free_shipping', isset($product_data['Free Shipping']) && $product_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No');
+            $product->update_meta_data('_free_shipping', $product_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No');
 
             // Set shipping data
             $shipping_data = array(
-                'is_bulky_item' => isset($product_data['bulky item']) && $product_data['bulky item'] === 'Yes',
+                'is_bulky_item' => $product_data['bulky item'] === 'Yes',
                 'ACT' => $product_data['ACT'],
                 'NSW_M' => $product_data['NSW_M'],
                 'NSW_R' => $product_data['NSW_R'],

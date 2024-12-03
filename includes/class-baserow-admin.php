@@ -38,7 +38,7 @@ class Baserow_Admin {
 
         add_submenu_page(
             'baserow-importer',
-            'DropshipZone Settings',
+            'Settings',
             'Settings',
             'manage_options',
             'baserow-importer-settings',
@@ -133,7 +133,7 @@ class Baserow_Admin {
         <div class="wrap">
             <h1>DropshipZone Products</h1>
             <div class="notice notice-warning">
-                <p>Please configure your DropshipZone settings before using the importer. 
+                <p>Please configure your settings before using the importer. 
                    <a href="<?php echo admin_url('admin.php?page=baserow-importer-settings'); ?>">Go to Settings</a>
                 </p>
             </div>

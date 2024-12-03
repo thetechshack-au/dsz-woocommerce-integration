@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: DSZ WooCommerce Product Importer
+ * Plugin Name: DropshipZone Products
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.4.0
+ * Version: 1.6.0
  * Last Updated: 2024-01-09 14:00:00 UTC
  * Author: Andrew Waite
  * Requires PHP: 7.2

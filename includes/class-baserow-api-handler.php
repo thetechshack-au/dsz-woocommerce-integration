@@ -237,16 +237,23 @@ class Baserow_API_Handler {
             return new WP_Error('config_error', 'API configuration is incomplete');
         }
 
+        // Build base URL with page-based pagination
         $url = trailingslashit($this->api_url) . "api/database/rows/table/{$this->table_id}/?user_field_names=true&size={$this->per_page}&page={$page}";
         
+        // Add search parameter if provided
         if (!empty($search_term)) {
             $url .= '&search=' . urlencode($search_term);
         }
 
+        // Add category filter if provided
         if (!empty($category)) {
+            // Extract the last part of the category path for contains search
             $category_parts = explode(' > ', $category);
             $search_term = end($category_parts);
+            
+            // Use contains filter with proper encoding
             $url .= '&filter__Category__contains=' . rawurlencode($search_term);
+            Baserow_Logger::debug("Search URL with category filter: " . $url);
         }
 
         $response = wp_remote_get($url, array(
@@ -258,6 +265,7 @@ class Baserow_API_Handler {
         ));
 
         if (is_wp_error($response)) {
+            Baserow_Logger::error("Search API error: " . $response->get_error_message());
             return new WP_Error('api_error', $response->get_error_message());
         }
 
@@ -265,13 +273,30 @@ class Baserow_API_Handler {
         $body = wp_remote_retrieve_body($response);
 
         if ($status_code !== 200) {
+            Baserow_Logger::error("Search API status error: " . $status_code);
+            Baserow_Logger::error("Response body: " . $body);
             return new WP_Error('api_error', "API returned status code {$status_code}");
         }
 
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            Baserow_Logger::error("Search JSON parse error: " . json_last_error_msg());
             return new WP_Error('json_error', "Failed to parse JSON response");
+        }
+
+        // Add pagination info to the response
+        $data['pagination'] = array(
+            'current_page' => $page,
+            'total_pages' => ceil($data['count'] / $this->per_page),
+            'total_items' => $data['count']
+        );
+
+        if (!empty($category)) {
+            Baserow_Logger::debug("Search results for category '" . $category . "': " . count($data['results']) . " products found");
+            if (!empty($data['results'])) {
+                Baserow_Logger::debug("First product in results: " . print_r($data['results'][0], true));
+            }
         }
 
         return $data;

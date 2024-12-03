@@ -17,7 +17,6 @@ class Baserow_Admin {
 
     private function init_hooks() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('wp_ajax_test_baserow_connection', array($this, 'test_baserow_connection'));
         add_action('wp_ajax_search_products', array($this, 'search_products'));
         add_action('wp_ajax_import_product', array($this, 'import_product'));
         add_action('wp_ajax_delete_product', array($this, 'delete_product'));
@@ -225,18 +224,6 @@ class Baserow_Admin {
 
         Baserow_Logger::debug("Search response - count: " . count($result['results']));
         wp_send_json_success($result);
-    }
-
-    public function test_baserow_connection() {
-        check_ajax_referer('baserow_importer_nonce', 'nonce');
-        
-        nocache_headers();
-        
-        $result = $this->api_handler->test_connection();
-        wp_send_json($result ? 
-            array('success' => true, 'message' => 'Connection successful') : 
-            array('success' => false, 'message' => 'Connection failed')
-        );
     }
 
     public function delete_product() {

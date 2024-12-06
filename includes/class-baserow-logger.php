@@ -76,7 +76,6 @@ class Baserow_Logger {
             return;
         }
 
-        add_action('admin_notices', [__CLASS__, 'display_write_permission_error']);
         add_action('admin_init', [__CLASS__, 'maybe_rotate_log']);
     }
 
@@ -118,30 +117,14 @@ class Baserow_Logger {
             return false;
         }
 
-        if (!is_writable(self::$log_dir) || !is_writable(self::$log_file)) {
+        // Only check directory permissions, since file permissions might change
+        if (!is_writable(self::$log_dir)) {
             self::$log_enabled = false;
             return false;
         }
 
         self::$log_enabled = true;
         return true;
-    }
-
-    /**
-     * Display permission error notice
-     *
-     * @return void
-     */
-    public static function display_write_permission_error(): void {
-        if (!self::check_permissions()) {
-            printf(
-                '<div class="notice notice-error"><p>%s</p></div>',
-                esc_html(sprintf(
-                    'Baserow Importer log file is not writable. Please check permissions for: %s',
-                    self::$log_file
-                ))
-            );
-        }
     }
 
     /**
@@ -181,7 +164,7 @@ class Baserow_Logger {
             self::init();
         }
 
-        if (!self::$log_enabled || !in_array($level, self::$valid_levels)) {
+        if (!in_array($level, self::$valid_levels)) {
             return false;
         }
 
@@ -194,7 +177,6 @@ class Baserow_Logger {
             $formatted_message = self::format_message($message, $level, $context);
             return error_log($formatted_message . PHP_EOL, 3, self::$log_file);
         } catch (Exception $e) {
-            self::$log_enabled = false;
             return false;
         }
     }

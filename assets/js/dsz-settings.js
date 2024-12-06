@@ -21,7 +21,7 @@ jQuery(document).ready(function($) {
                     statusSpan.html('✓ Connection successful');
                     statusSpan.css('color', '#46b450');
                 } else {
-                    statusSpan.html('✗ ' + response.data);
+                    statusSpan.html('✗ ' + (response.data || 'Connection failed'));
                     statusSpan.css('color', '#dc3232');
                 }
             },

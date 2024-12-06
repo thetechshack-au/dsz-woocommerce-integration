@@ -65,6 +65,7 @@ class Baserow_Settings {
             return;
         }
 
+        // Enqueue main settings script
         wp_enqueue_script(
             'baserow-settings', 
             BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/settings.js',
@@ -73,6 +74,7 @@ class Baserow_Settings {
             true
         );
 
+        // Enqueue DSZ settings script
         wp_enqueue_script(
             'dsz-settings', 
             BASEROW_IMPORTER_PLUGIN_URL . 'assets/js/dsz-settings.js',
@@ -81,10 +83,14 @@ class Baserow_Settings {
             true
         );
 
-        wp_localize_script('baserow-settings', 'baserowSettings', array(
+        // Localize scripts with shared settings
+        $settings = array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('baserow_test_connection')
-        ));
+        );
+
+        wp_localize_script('baserow-settings', 'baserowSettings', $settings);
+        wp_localize_script('dsz-settings', 'baserowSettings', $settings);
     }
 
     public function register_settings() {

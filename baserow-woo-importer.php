@@ -26,9 +26,11 @@ class Baserow_Woo_Importer {
     private $settings;
     private $product_ajax;
     private $product_tracker;
+    private $stock_handler;
 
     public function __construct() {
         register_activation_hook(__FILE__, array($this, 'activate'));
+        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
 
@@ -98,6 +100,22 @@ class Baserow_Woo_Importer {
         }
 
         $this->create_tables();
+        
+        // Initialize components for activation
+        $this->load_dependencies();
+        $this->initialize_components();
+        
+        // Schedule stock sync
+        if ($this->stock_handler) {
+            $this->stock_handler->schedule_sync();
+        }
+    }
+
+    public function deactivate() {
+        // Unschedule stock sync
+        if ($this->stock_handler) {
+            $this->stock_handler->unschedule_sync();
+        }
     }
 
     private function create_tables() {
@@ -218,6 +236,7 @@ class Baserow_Woo_Importer {
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-validator.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-image-handler.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-product-tracker.php';
+            require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/product/class-baserow-stock-handler.php';
             
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-shipping-zone-manager.php';
             require_once BASEROW_IMPORTER_PLUGIN_DIR . 'includes/shipping/class-baserow-postcode-mapper.php';
@@ -240,6 +259,9 @@ class Baserow_Woo_Importer {
         
         // Initialize product tracker
         $this->product_tracker = new Baserow_Product_Tracker();
+        
+        // Initialize stock handler
+        $this->stock_handler = new Baserow_Stock_Handler($this->api_handler, $this->product_tracker);
         
         // Initialize AJAX handlers
         $this->product_ajax = new Baserow_Product_Ajax();

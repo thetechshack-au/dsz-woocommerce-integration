@@ -50,6 +50,9 @@ class Baserow_Product_Importer {
                 return $product_data;
             }
 
+            // Log the raw product data for debugging
+            $this->log_debug("Raw product data from Baserow:", $product_data);
+
             // Validate product data
             $validation_result = $this->product_validator->validate_complete_product($product_data);
             if (is_wp_error($validation_result)) {
@@ -61,6 +64,9 @@ class Baserow_Product_Importer {
             if (is_wp_error($woo_data)) {
                 return $woo_data;
             }
+
+            // Log the mapped WooCommerce data for debugging
+            $this->log_debug("Mapped WooCommerce data:", $woo_data);
 
             // Create or update WooCommerce product
             $existing_product_id = wc_get_product_id_by_sku($product_data['SKU']);
@@ -87,18 +93,38 @@ class Baserow_Product_Importer {
                 }
             }
 
-            // Set meta data
+            // Handle EAN code first if it exists
+            if (!empty($product_data['EAN Code'])) {
+                $ean = $this->sanitize_text_field($product_data['EAN Code']);
+                
+                // Set the primary EAN fields first
+                update_post_meta($product->get_id(), 'EAN', $ean);
+                update_post_meta($product->get_id(), '_alg_ean', $ean);
+                
+                // Force a save to ensure these are written
+                $product->save();
+                
+                // Now set additional barcode fields
+                update_post_meta($product->get_id(), '_barcode', $ean);
+                update_post_meta($product->get_id(), '_wpm_ean', $ean);
+                
+                $this->log_debug("Set EAN/barcode fields:", [
+                    'product_id' => $product->get_id(),
+                    'ean' => $ean
+                ]);
+            }
+
+            // Set other meta data
             if (!empty($woo_data['meta_data'])) {
                 foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                    // Log meta data being set for debugging
-                    $this->log_debug("Setting meta data", [
-                        'key' => $meta_key,
-                        'value' => $meta_value
-                    ]);
-                    
-                    // Set meta data both ways to ensure it's stored properly
-                    update_post_meta($product->get_id(), $meta_key, $meta_value);
-                    $product->update_meta_data($meta_key, $meta_value);
+                    // Skip EAN-related fields as we handled them above
+                    if (!in_array($meta_key, ['EAN', '_alg_ean', '_barcode', '_wpm_ean'])) {
+                        update_post_meta($product->get_id(), $meta_key, $meta_value);
+                        $this->log_debug("Setting meta data", [
+                            'key' => $meta_key,
+                            'value' => $meta_value
+                        ]);
+                    }
                 }
             }
 
@@ -117,12 +143,14 @@ class Baserow_Product_Importer {
                 return new WP_Error('product_save_failed', 'Failed to save product');
             }
 
-            // Double-check meta was saved and update if needed
-            foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                $saved_value = get_post_meta($woo_product_id, $meta_key, true);
-                if ($saved_value !== $meta_value) {
-                    update_post_meta($woo_product_id, $meta_key, $meta_value);
-                }
+            // Verify EAN code was saved
+            if (!empty($product_data['EAN Code'])) {
+                $saved_ean = get_post_meta($woo_product_id, 'EAN', true);
+                $saved_alg_ean = get_post_meta($woo_product_id, '_alg_ean', true);
+                $this->log_debug("Verified saved EAN data:", [
+                    'EAN' => $saved_ean,
+                    '_alg_ean' => $saved_alg_ean
+                ]);
             }
 
             // Handle images

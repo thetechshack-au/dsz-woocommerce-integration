@@ -75,10 +75,14 @@ class Baserow_Product_Mapper {
                 'images' => $this->prepare_image_data($baserow_data)
             ];
 
-            $this->log_debug("Product mapping completed", [
-                'baserow_id' => $baserow_data['id'] ?? 'unknown',
-                'execution_time' => microtime(true) - $start_time
-            ]);
+            // Log the mapped data for debugging
+            if (!empty($baserow_data['EAN Code'])) {
+                $this->log_debug("Mapped EAN data:", [
+                    'original' => $baserow_data['EAN Code'],
+                    'sanitized' => $this->sanitize_text_field($baserow_data['EAN Code']),
+                    'meta_fields' => array_intersect_key($product_data['meta_data'], array_flip(['EAN', '_alg_ean', '_barcode', '_wpm_ean']))
+                ]);
+            }
 
             return $product_data;
 
@@ -131,19 +135,18 @@ class Baserow_Product_Mapper {
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
             '_last_baserow_sync' => current_time('mysql'),
-            '_product_source' => 'DSZ',
-            'product_source' => 'DSZ'
+            '_product_source' => 'DSZ'
         ];
 
-        // Add EAN code if available to multiple meta fields for compatibility
+        // Add EAN code if available
         if (!empty($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
-            $meta_data['_wpm_ean'] = $ean;
-            $meta_data['_alg_ean'] = $ean;
-            $meta_data['_ean'] = $ean;
+            // Primary EAN fields
             $meta_data['EAN'] = $ean;
-            $meta_data['_barcode'] = $ean;  // Add barcode meta field
-            $meta_data['barcode'] = $ean;   // Add without underscore for compatibility
+            $meta_data['_alg_ean'] = $ean;
+            // Additional barcode fields
+            $meta_data['_barcode'] = $ean;
+            $meta_data['_wpm_ean'] = $ean;
         }
 
         return $meta_data;

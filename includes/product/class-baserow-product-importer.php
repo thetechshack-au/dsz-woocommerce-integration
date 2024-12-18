@@ -34,6 +34,41 @@ class Baserow_Product_Importer {
         add_action('baserow_product_imported', array($this->shipping_zone_manager, 'initialize_zones'), 10, 2);
     }
 
+    private function set_ean_code($product_id, $ean_code) {
+        if (empty($ean_code)) {
+            $this->log_debug("No EAN code provided");
+            return;
+        }
+
+        $this->log_debug("Attempting to set EAN code", [
+            'product_id' => $product_id,
+            'ean_code' => $ean_code
+        ]);
+
+        // Set EAN code
+        $result = update_post_meta($product_id, '_alg_ean', $ean_code);
+        
+        if ($result === false) {
+            $this->log_error("Failed to set EAN code", [
+                'product_id' => $product_id,
+                'ean_code' => $ean_code
+            ]);
+        } else {
+            $this->log_debug("Successfully set EAN code", [
+                'product_id' => $product_id,
+                'ean_code' => $ean_code
+            ]);
+
+            // Verify it was set
+            $saved_ean = get_post_meta($product_id, '_alg_ean', true);
+            $this->log_debug("Verified saved EAN code", [
+                'product_id' => $product_id,
+                'saved_ean' => $saved_ean,
+                'matches_original' => ($saved_ean === $ean_code)
+            ]);
+        }
+    }
+
     public function import_product($product_id) {
         try {
             $this->log_info("Starting import for product ID: {$product_id}");
@@ -51,6 +86,12 @@ class Baserow_Product_Importer {
             }
 
             $this->log_debug("Product data received:", $product_data);
+
+            // Check for EAN code early
+            $ean_code = !empty($product_data['EAN Code']) ? $this->sanitize_text_field($product_data['EAN Code']) : '';
+            if (!empty($ean_code)) {
+                $this->log_debug("Found EAN code in product data: " . $ean_code);
+            }
 
             // Validate product data
             $validation_result = $this->product_validator->validate_complete_product($product_data);
@@ -86,20 +127,9 @@ class Baserow_Product_Importer {
             $woo_product_id = $product->get_id();
             $this->log_debug("Working with product ID: " . $woo_product_id);
 
-            // Set EAN code first
-            if (!empty($product_data['EAN Code'])) {
-                $ean = $this->sanitize_text_field($product_data['EAN Code']);
-                $this->log_debug("Setting EAN code: " . $ean);
-                
-                // Set EAN using the documented meta key
-                update_post_meta($woo_product_id, '_alg_ean', $ean);
-                
-                // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, '_alg_ean', true);
-                
-                $this->log_debug("Verified EAN data:", [
-                    '_alg_ean' => $saved_ean
-                ]);
+            // Set EAN code first if available
+            if (!empty($ean_code)) {
+                $this->set_ean_code($woo_product_id, $ean_code);
             }
 
             $this->log_debug("Setting basic product data");
@@ -158,6 +188,17 @@ class Baserow_Product_Importer {
 
             // Save product
             $product->save();
+
+            // Double-check EAN code was saved
+            if (!empty($ean_code)) {
+                $final_ean = get_post_meta($woo_product_id, '_alg_ean', true);
+                $this->log_debug("Final EAN code check", [
+                    'product_id' => $woo_product_id,
+                    'expected_ean' => $ean_code,
+                    'saved_ean' => $final_ean,
+                    'matches' => ($final_ean === $ean_code)
+                ]);
+            }
 
             // Handle images
             if (!empty($woo_data['images'])) {

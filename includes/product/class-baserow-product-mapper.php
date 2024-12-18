@@ -131,20 +131,21 @@ class Baserow_Product_Mapper {
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
             '_last_baserow_sync' => current_time('mysql'),
-            '_product_source' => 'baserow'  // Add product source
+            '_product_source' => 'baserow',
+            'product_source' => 'baserow'  // Some plugins might look for this without underscore
         ];
 
         // Add EAN code if available to multiple meta fields for compatibility
         if (!empty($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
+            // Store with and without underscores for maximum compatibility
             $meta_data['_wpm_ean'] = $ean;
+            $meta_data['wpm_ean'] = $ean;
             $meta_data['_alg_ean'] = $ean;
-            $meta_data['EAN'] = $ean;  // This might be used by some export plugins
-        }
-
-        // Add supplier ID if available
-        if (!empty($baserow_data['Supplier ID'])) {
-            $meta_data['_supplier_id'] = $this->sanitize_text_field($baserow_data['Supplier ID']);
+            $meta_data['alg_ean'] = $ean;
+            $meta_data['_ean'] = $ean;
+            $meta_data['ean'] = $ean;
+            $meta_data['EAN'] = $ean;
         }
 
         return $meta_data;

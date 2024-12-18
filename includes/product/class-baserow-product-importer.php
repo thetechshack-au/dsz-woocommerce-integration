@@ -79,10 +79,7 @@ class Baserow_Product_Importer {
 
             // Set basic product data
             foreach ($woo_data as $key => $value) {
-                if ($key === 'gtin') {
-                    // Set GTIN using WooCommerce's standard field
-                    $product->update_meta_data('_gtin', $value);
-                } else {
+                if ($key !== 'meta_data') {
                     $setter = "set_{$key}";
                     if (method_exists($product, $setter)) {
                         $product->$setter($value);
@@ -91,8 +88,18 @@ class Baserow_Product_Importer {
             }
 
             // Set meta data
-            foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                $product->update_meta_data($meta_key, $meta_value);
+            if (!empty($woo_data['meta_data'])) {
+                foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
+                    // Log meta data being set for debugging
+                    $this->log_debug("Setting meta data", [
+                        'key' => $meta_key,
+                        'value' => $meta_value
+                    ]);
+                    
+                    // Set meta data both ways to ensure it's stored properly
+                    update_post_meta($product->get_id(), $meta_key, $meta_value);
+                    $product->update_meta_data($meta_key, $meta_value);
+                }
             }
 
             // Set categories
@@ -108,6 +115,14 @@ class Baserow_Product_Importer {
             if (!$woo_product_id) {
                 $this->log_error("Failed to save product");
                 return new WP_Error('product_save_failed', 'Failed to save product');
+            }
+
+            // Double-check meta was saved and update if needed
+            foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
+                $saved_value = get_post_meta($woo_product_id, $meta_key, true);
+                if ($saved_value !== $meta_value) {
+                    update_post_meta($woo_product_id, $meta_key, $meta_value);
+                }
             }
 
             // Handle images

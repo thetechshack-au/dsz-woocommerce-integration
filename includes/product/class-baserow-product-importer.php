@@ -86,6 +86,25 @@ class Baserow_Product_Importer {
             $woo_product_id = $product->get_id();
             $this->log_debug("Working with product ID: " . $woo_product_id);
 
+            // Set EAN code first
+            if (!empty($product_data['EAN Code'])) {
+                $ean = $this->sanitize_text_field($product_data['EAN Code']);
+                $this->log_debug("Setting EAN code: " . $ean);
+                
+                // Set both fields directly
+                update_post_meta($woo_product_id, 'EAN', $ean);
+                update_post_meta($woo_product_id, '_alg_ean', $ean);
+                
+                // Verify EAN was saved
+                $saved_ean = get_post_meta($woo_product_id, 'EAN', true);
+                $saved_alg_ean = get_post_meta($woo_product_id, '_alg_ean', true);
+                
+                $this->log_debug("Verified EAN data:", [
+                    'EAN' => $saved_ean,
+                    '_alg_ean' => $saved_alg_ean
+                ]);
+            }
+
             $this->log_debug("Setting basic product data");
 
             // Set basic product data
@@ -131,54 +150,16 @@ class Baserow_Product_Importer {
 
             $this->log_info("Product data set successfully");
 
-            // Save product to ensure we have an ID
-            $product->save();
-
-            // Set EAN code
-            if (!empty($product_data['EAN Code'])) {
-                $ean = $this->sanitize_text_field($product_data['EAN Code']);
-                $this->log_debug("Setting EAN code: " . $ean);
-                
-                // Set via direct post meta
-                update_post_meta($woo_product_id, 'EAN', $ean);
-                update_post_meta($woo_product_id, '_alg_ean', $ean);
-                update_post_meta($woo_product_id, '_barcode', $ean);
-                update_post_meta($woo_product_id, '_wpm_ean', $ean);
-                
-                // Set via WooCommerce API
-                $product->update_meta_data('EAN', $ean);
-                $product->update_meta_data('_alg_ean', $ean);
-                $product->update_meta_data('_barcode', $ean);
-                $product->update_meta_data('_wpm_ean', $ean);
-                
-                // Save again to ensure EAN is stored
-                $product->save();
-                
-                // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, 'EAN', true);
-                $saved_alg_ean = get_post_meta($woo_product_id, '_alg_ean', true);
-                $saved_barcode = get_post_meta($woo_product_id, '_barcode', true);
-                $saved_wpm_ean = get_post_meta($woo_product_id, '_wpm_ean', true);
-                
-                $this->log_debug("Verified saved EAN data:", [
-                    'EAN' => $saved_ean,
-                    '_alg_ean' => $saved_alg_ean,
-                    '_barcode' => $saved_barcode,
-                    '_wpm_ean' => $saved_wpm_ean
-                ]);
-            }
-
             // Set other meta data
             if (!empty($woo_data['meta_data'])) {
                 foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                    if (!in_array($meta_key, ['EAN', '_alg_ean', '_barcode', '_wpm_ean'])) {
+                    if (!in_array($meta_key, ['EAN', '_alg_ean'])) {
                         update_post_meta($woo_product_id, $meta_key, $meta_value);
-                        $product->update_meta_data($meta_key, $meta_value);
                     }
                 }
             }
 
-            // Save product again with all meta data
+            // Save product
             $product->save();
 
             // Handle images

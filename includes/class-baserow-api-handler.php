@@ -178,6 +178,14 @@ class Baserow_API_Handler {
             return new WP_Error('json_error', "Failed to parse JSON response");
         }
 
+        // Log the raw product data for debugging
+        Baserow_Logger::debug("Raw product data from Baserow:", [
+            'id' => $data['id'] ?? 'unknown',
+            'sku' => $data['SKU'] ?? 'unknown',
+            'ean_code' => $data['EAN Code'] ?? 'not set',
+            'all_fields' => array_keys($data)
+        ]);
+
         return $data;
     }
 

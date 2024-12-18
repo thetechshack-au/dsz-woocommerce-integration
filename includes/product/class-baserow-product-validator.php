@@ -24,7 +24,11 @@ class Baserow_Product_Validator {
         $start_time = microtime(true);
 
         try {
-            $this->log_debug("Starting complete product validation");
+            $this->log_debug("Starting complete product validation", [
+                'id' => $product_data['id'] ?? 'unknown',
+                'sku' => $product_data['SKU'] ?? 'unknown',
+                'available_fields' => array_keys($product_data)
+            ]);
 
             $validations = [
                 'base' => $this->validate_product_data($product_data),
@@ -219,15 +223,36 @@ class Baserow_Product_Validator {
      * @return true|WP_Error
      */
     private function validate_ean_code(array $product_data): bool|WP_Error {
-        if (!empty($product_data['EAN Code'])) {
-            $ean = preg_replace('/[^0-9]/', '', $product_data['EAN Code']);
+        // Check for EAN Code with different case variations
+        $ean_field_variations = ['EAN Code', 'EAN code', 'ean code', 'EANCode', 'eancode'];
+        $ean_value = null;
+        $found_field = null;
+
+        foreach ($ean_field_variations as $field) {
+            if (isset($product_data[$field])) {
+                $ean_value = $product_data[$field];
+                $found_field = $field;
+                break;
+            }
+        }
+
+        $this->log_debug("EAN validation check:", [
+            'found_field' => $found_field,
+            'value' => $ean_value
+        ]);
+
+        if (!empty($ean_value)) {
+            // Remove any non-numeric characters
+            $ean = preg_replace('/[^0-9]/', '', $ean_value);
             
             // EAN-13 should be exactly 13 digits
             if (strlen($ean) !== 13) {
-                return new WP_Error(
-                    'invalid_ean_length',
-                    'EAN code must be exactly 13 digits'
-                );
+                $this->log_warning("Invalid EAN length", [
+                    'ean' => $ean,
+                    'length' => strlen($ean)
+                ]);
+                // Don't return error, just log warning
+                return true;
             }
 
             // Validate EAN-13 checksum
@@ -238,10 +263,13 @@ class Baserow_Product_Validator {
             $checksum = (10 - ($sum % 10)) % 10;
 
             if ($checksum !== (int)$ean[12]) {
-                return new WP_Error(
-                    'invalid_ean_checksum',
-                    'Invalid EAN code checksum'
-                );
+                $this->log_warning("Invalid EAN checksum", [
+                    'ean' => $ean,
+                    'calculated_checksum' => $checksum,
+                    'provided_checksum' => (int)$ean[12]
+                ]);
+                // Don't return error, just log warning
+                return true;
             }
         }
 

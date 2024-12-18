@@ -46,25 +46,10 @@ class Baserow_Product_Mapper {
         $start_time = microtime(true);
 
         try {
-            // Log all available fields for debugging
-            $this->log_debug("Available Baserow fields:", array_keys($baserow_data));
-
-            // Check for EAN Code with different case variations
-            $ean_field_variations = ['EAN Code', 'EAN code', 'ean code', 'EANCode', 'eancode'];
-            $ean_value = null;
-            $found_field = null;
-
-            foreach ($ean_field_variations as $field) {
-                if (isset($baserow_data[$field])) {
-                    $ean_value = $baserow_data[$field];
-                    $found_field = $field;
-                    break;
-                }
-            }
-
-            $this->log_debug("EAN field check result:", [
-                'found_field' => $found_field,
-                'value' => $ean_value
+            $this->log_debug("Starting product mapping", [
+                'baserow_id' => $baserow_data['id'] ?? 'unknown',
+                'sku' => $baserow_data['SKU'] ?? 'unknown',
+                'ean' => $baserow_data['EAN Code'] ?? 'not set'
             ]);
 
             // Validate the incoming data
@@ -77,6 +62,13 @@ class Baserow_Product_Mapper {
             $regular_price = $this->get_price_value($baserow_data, 'RrpPrice');
             $cost_price = $this->get_price_value($baserow_data, 'price');
 
+            // Get EAN code if available
+            $ean = '';
+            if (!empty($baserow_data['EAN Code'])) {
+                $ean = trim($baserow_data['EAN Code']);
+                $this->log_debug("Found EAN code", ['ean' => $ean]);
+            }
+
             $product_data = [
                 'name' => $this->sanitize_text_field($baserow_data['Title']),
                 'status' => 'publish',
@@ -85,7 +77,7 @@ class Baserow_Product_Mapper {
                 'regular_price' => $regular_price,
                 'sale_price' => $cost_price,
                 'description' => $this->sanitize_textarea_field($baserow_data['Description'] ?? ''),
-                'meta_data' => $this->prepare_meta_data($baserow_data, $cost_price, $ean_value),
+                'meta_data' => $this->prepare_meta_data($baserow_data, $cost_price, $ean),
                 'dimensions' => $this->prepare_dimensions($baserow_data),
                 'shipping_data' => $this->prepare_shipping_data($baserow_data),
                 'stock_data' => $this->prepare_stock_data($baserow_data),
@@ -95,11 +87,7 @@ class Baserow_Product_Mapper {
             $this->log_debug("Product mapping completed", [
                 'baserow_id' => $baserow_data['id'] ?? 'unknown',
                 'execution_time' => microtime(true) - $start_time,
-                'ean_data' => [
-                    'found_field' => $found_field,
-                    'value' => $ean_value,
-                    'meta_fields' => array_intersect_key($product_data['meta_data'], array_flip(['EAN', '_alg_ean', '_barcode', '_wpm_ean']))
-                ]
+                'meta_data' => array_intersect_key($product_data['meta_data'], array_flip(['EAN', '_alg_ean', '_barcode', '_wpm_ean']))
             ]);
 
             return $product_data;
@@ -144,10 +132,10 @@ class Baserow_Product_Mapper {
      *
      * @param array $baserow_data
      * @param string $cost_price
-     * @param string|null $ean_value
+     * @param string $ean
      * @return array
      */
-    private function prepare_meta_data(array $baserow_data, string $cost_price, ?string $ean_value): array {
+    private function prepare_meta_data(array $baserow_data, string $cost_price, string $ean): array {
         $meta_data = [
             '_direct_import' => $baserow_data['DI'] === 'Yes' ? 'Yes' : 'No',
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
@@ -158,16 +146,14 @@ class Baserow_Product_Mapper {
         ];
 
         // Add EAN code if available
-        if (!empty($ean_value)) {
-            $ean = $this->sanitize_text_field($ean_value);
+        if (!empty($ean)) {
             $meta_data['EAN'] = $ean;
             $meta_data['_alg_ean'] = $ean;
             $meta_data['_barcode'] = $ean;
             $meta_data['_wpm_ean'] = $ean;
             
             $this->log_debug("Added EAN to meta data", [
-                'original' => $ean_value,
-                'sanitized' => $ean,
+                'original' => $ean,
                 'meta_fields' => array_intersect_key($meta_data, array_flip(['EAN', '_alg_ean', '_barcode', '_wpm_ean']))
             ]);
         }

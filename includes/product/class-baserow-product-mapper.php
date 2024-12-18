@@ -130,12 +130,21 @@ class Baserow_Product_Mapper {
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
-            '_last_baserow_sync' => current_time('mysql')
+            '_last_baserow_sync' => current_time('mysql'),
+            '_product_source' => 'baserow'  // Add product source
         ];
 
-        // Add EAN code if available
+        // Add EAN code if available to multiple meta fields for compatibility
         if (!empty($baserow_data['EAN Code'])) {
-            $meta_data['_wpm_ean'] = $this->sanitize_text_field($baserow_data['EAN Code']);
+            $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
+            $meta_data['_wpm_ean'] = $ean;
+            $meta_data['_alg_ean'] = $ean;
+            $meta_data['EAN'] = $ean;  // This might be used by some export plugins
+        }
+
+        // Add supplier ID if available
+        if (!empty($baserow_data['Supplier ID'])) {
+            $meta_data['_supplier_id'] = $this->sanitize_text_field($baserow_data['Supplier ID']);
         }
 
         return $meta_data;

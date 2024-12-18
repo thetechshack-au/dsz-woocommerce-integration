@@ -79,9 +79,14 @@ class Baserow_Product_Importer {
 
             // Set basic product data
             foreach ($woo_data as $key => $value) {
-                $setter = "set_{$key}";
-                if (method_exists($product, $setter)) {
-                    $product->$setter($value);
+                if ($key === 'gtin') {
+                    // Set GTIN using WooCommerce's standard field
+                    $product->update_meta_data('_gtin', $value);
+                } else {
+                    $setter = "set_{$key}";
+                    if (method_exists($product, $setter)) {
+                        $product->$setter($value);
+                    }
                 }
             }
 

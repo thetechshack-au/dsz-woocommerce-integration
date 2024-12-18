@@ -78,7 +78,8 @@ class Baserow_Product_Mapper {
 
             $this->log_debug("Product mapping completed", [
                 'baserow_id' => $baserow_data['id'] ?? 'unknown',
-                'execution_time' => microtime(true) - $start_time
+                'execution_time' => microtime(true) - $start_time,
+                'meta_data' => $product_data['meta_data']
             ]);
 
             return $product_data;
@@ -126,7 +127,7 @@ class Baserow_Product_Mapper {
      * @return array
      */
     private function prepare_meta_data(array $baserow_data, string $cost_price): array {
-        return [
+        $meta_data = [
             '_direct_import' => $baserow_data['DI'] === 'Yes' ? 'Yes' : 'No',
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
             '_cost_price' => $cost_price,
@@ -134,6 +135,21 @@ class Baserow_Product_Mapper {
             '_last_baserow_sync' => current_time('mysql'),
             '_product_source' => 'DSZ'
         ];
+
+        // Add EAN code if available
+        if (isset($baserow_data['EAN Code']) && !empty($baserow_data['EAN Code'])) {
+            $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
+            $meta_data['_wpm_ean'] = $ean;
+            $meta_data['_alg_ean'] = $ean;
+            $meta_data['EAN'] = $ean;
+
+            $this->log_debug("Added EAN code to meta data", [
+                'ean' => $ean,
+                'meta_keys' => ['_wpm_ean', '_alg_ean', 'EAN']
+            ]);
+        }
+
+        return $meta_data;
     }
 
     /**

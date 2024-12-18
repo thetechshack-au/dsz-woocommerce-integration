@@ -91,17 +91,14 @@ class Baserow_Product_Importer {
                 $ean = $this->sanitize_text_field($product_data['EAN Code']);
                 $this->log_debug("Setting EAN code: " . $ean);
                 
-                // Set both fields directly
-                update_post_meta($woo_product_id, 'EAN', $ean);
+                // Set EAN using the documented meta key
                 update_post_meta($woo_product_id, '_alg_ean', $ean);
                 
                 // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, 'EAN', true);
-                $saved_alg_ean = get_post_meta($woo_product_id, '_alg_ean', true);
+                $saved_ean = get_post_meta($woo_product_id, '_alg_ean', true);
                 
                 $this->log_debug("Verified EAN data:", [
-                    'EAN' => $saved_ean,
-                    '_alg_ean' => $saved_alg_ean
+                    '_alg_ean' => $saved_ean
                 ]);
             }
 
@@ -153,7 +150,7 @@ class Baserow_Product_Importer {
             // Set other meta data
             if (!empty($woo_data['meta_data'])) {
                 foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                    if (!in_array($meta_key, ['EAN', '_alg_ean'])) {
+                    if ($meta_key !== '_alg_ean') {
                         update_post_meta($woo_product_id, $meta_key, $meta_value);
                     }
                 }

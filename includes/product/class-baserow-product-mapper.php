@@ -48,8 +48,7 @@ class Baserow_Product_Mapper {
         try {
             $this->log_debug("Starting product mapping", [
                 'baserow_id' => $baserow_data['id'] ?? 'unknown',
-                'sku' => $baserow_data['SKU'] ?? 'unknown',
-                'ean' => $baserow_data['EAN Code'] ?? 'not set'
+                'sku' => $baserow_data['SKU'] ?? 'unknown'
             ]);
 
             // Validate the incoming data
@@ -127,7 +126,7 @@ class Baserow_Product_Mapper {
      * @return array
      */
     private function prepare_meta_data(array $baserow_data, string $cost_price): array {
-        $meta_data = [
+        return [
             '_direct_import' => $baserow_data['DI'] === 'Yes' ? 'Yes' : 'No',
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
             '_cost_price' => $cost_price,
@@ -135,11 +134,6 @@ class Baserow_Product_Mapper {
             '_last_baserow_sync' => current_time('mysql'),
             '_product_source' => 'DSZ'
         ];
-
-        // Note: EAN code is now handled directly in the importer
-        // This ensures it's set before any other operations
-
-        return $meta_data;
     }
 
     /**

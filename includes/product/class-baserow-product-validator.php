@@ -32,7 +32,8 @@ class Baserow_Product_Validator {
                 'shipping' => $this->validate_shipping_data($product_data),
                 'stock' => $this->validate_stock_data($product_data),
                 'dimensions' => $this->validate_dimensions($product_data),
-                'images' => $this->validate_images($product_data)
+                'images' => $this->validate_images($product_data),
+                'ean' => $this->validate_ean_code($product_data)
             ];
 
             foreach ($validations as $type => $result) {
@@ -205,6 +206,42 @@ class Baserow_Product_Validator {
                         sprintf('Invalid image type for %s. Allowed types: jpg, jpeg, png, gif, webp', $field)
                     );
                 }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Validates EAN code format
+     *
+     * @param array $product_data
+     * @return true|WP_Error
+     */
+    private function validate_ean_code(array $product_data): bool|WP_Error {
+        if (!empty($product_data['EAN Code'])) {
+            $ean = preg_replace('/[^0-9]/', '', $product_data['EAN Code']);
+            
+            // EAN-13 should be exactly 13 digits
+            if (strlen($ean) !== 13) {
+                return new WP_Error(
+                    'invalid_ean_length',
+                    'EAN code must be exactly 13 digits'
+                );
+            }
+
+            // Validate EAN-13 checksum
+            $sum = 0;
+            for ($i = 0; $i < 12; $i++) {
+                $sum += ($i % 2 === 0) ? (int)$ean[$i] : (int)$ean[$i] * 3;
+            }
+            $checksum = (10 - ($sum % 10)) % 10;
+
+            if ($checksum !== (int)$ean[12]) {
+                return new WP_Error(
+                    'invalid_ean_checksum',
+                    'Invalid EAN code checksum'
+                );
             }
         }
 

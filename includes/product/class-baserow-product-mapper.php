@@ -125,13 +125,23 @@ class Baserow_Product_Mapper {
      * @return array
      */
     private function prepare_meta_data(array $baserow_data, string $cost_price): array {
-        return [
+        $meta_data = [
             '_direct_import' => $baserow_data['DI'] === 'Yes' ? 'Yes' : 'No',
             '_free_shipping' => $baserow_data['Free Shipping'] === 'Yes' ? 'Yes' : 'No',
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
             '_last_baserow_sync' => current_time('mysql')
         ];
+
+        // Add EAN code if available
+        if (!empty($baserow_data['EAN Code'])) {
+            $meta_data['_gtin'] = $this->sanitize_text_field($baserow_data['EAN Code']);
+            // Add additional meta keys for better compatibility with different plugins
+            $meta_data['_ean'] = $this->sanitize_text_field($baserow_data['EAN Code']);
+            $meta_data['_barcode'] = $this->sanitize_text_field($baserow_data['EAN Code']);
+        }
+
+        return $meta_data;
     }
 
     /**

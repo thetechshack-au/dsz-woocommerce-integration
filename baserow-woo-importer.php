@@ -193,7 +193,9 @@ class Baserow_Woo_Importer {
             return;
         }
 
-        // Initialize logger
+        $this->load_dependencies();
+        
+        // Initialize logger after dependencies are loaded
         Baserow_Logger::init();
         if (!Baserow_Logger::is_logging_enabled()) {
             add_action('admin_notices', function() {
@@ -205,7 +207,6 @@ class Baserow_Woo_Importer {
             });
         }
 
-        $this->load_dependencies();
         $this->initialize_components();
     }
 

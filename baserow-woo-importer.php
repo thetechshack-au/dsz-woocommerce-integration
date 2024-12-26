@@ -92,13 +92,6 @@ class Baserow_Woo_Importer {
             wp_die('This plugin requires WooCommerce to be installed and activated.');
         }
 
-        // Create log file if it doesn't exist
-        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
-        if (!file_exists($log_file)) {
-            touch($log_file);
-            chmod($log_file, 0666); // Make it writable
-        }
-
         $this->create_tables();
         
         // Initialize components for activation
@@ -200,9 +193,9 @@ class Baserow_Woo_Importer {
             return;
         }
 
-        // Check log file permissions
-        $log_file = BASEROW_IMPORTER_PLUGIN_DIR . 'baserow-importer.log';
-        if (!is_writable($log_file)) {
+        // Initialize logger
+        Baserow_Logger::init();
+        if (!Baserow_Logger::is_logging_enabled()) {
             add_action('admin_notices', function() {
                 ?>
                 <div class="error">

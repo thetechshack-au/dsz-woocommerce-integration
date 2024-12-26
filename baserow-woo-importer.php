@@ -92,10 +92,12 @@ class Baserow_Woo_Importer {
             wp_die('This plugin requires WooCommerce to be installed and activated.');
         }
 
-        $this->create_tables();
-        
-        // Initialize components for activation
         $this->load_dependencies();
+        
+        // Initialize logger after dependencies are loaded
+        Baserow_Logger::init();
+        
+        $this->create_tables();
         $this->initialize_components();
         
         // Schedule stock sync

@@ -97,6 +97,10 @@ class Baserow_Woo_Importer {
         // Initialize logger after dependencies are loaded
         Baserow_Logger::init();
         
+        // Verify logger is working
+        error_log('Baserow Logger initialized: ' . (Baserow_Logger::is_logging_enabled() ? 'true' : 'false'));
+        error_log('Baserow Logger file: ' . Baserow_Logger::get_log_file());
+        
         $this->create_tables();
         $this->initialize_components();
         
@@ -197,8 +201,13 @@ class Baserow_Woo_Importer {
 
         $this->load_dependencies();
         
-        // Initialize logger after dependencies are loaded
+        // Initialize and verify logger
         Baserow_Logger::init();
+        
+        // Log initialization status
+        error_log('Baserow Logger init status - Enabled: ' . (Baserow_Logger::is_logging_enabled() ? 'true' : 'false'));
+        error_log('Baserow Logger init status - File: ' . Baserow_Logger::get_log_file());
+        
         if (!Baserow_Logger::is_logging_enabled()) {
             add_action('admin_notices', function() {
                 ?>

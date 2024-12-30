@@ -31,6 +31,24 @@ class Baserow_Product_Importer {
         $this->category_manager = new Baserow_Category_Manager();
         $this->shipping_zone_manager = new Baserow_Shipping_Zone_Manager();
 
+        // Test logging is working
+        error_log('Baserow Product Importer initialized - Testing error_log');
+        
+        // Check if logging is enabled
+        if (class_exists('Baserow_Logger')) {
+            $is_enabled = Baserow_Logger::is_logging_enabled();
+            error_log('Baserow Logger enabled: ' . ($is_enabled ? 'true' : 'false'));
+            
+            if ($is_enabled) {
+                $this->log_debug('Baserow Product Importer initialized - Testing debug logging');
+                $this->log_info('Baserow Product Importer initialized - Testing info logging');
+                $this->log_debug('Logger status check', [
+                    'logger_enabled' => $is_enabled,
+                    'log_file' => Baserow_Logger::get_log_file()
+                ]);
+            }
+        }
+
         add_action('baserow_product_imported', array($this->shipping_zone_manager, 'initialize_zones'), 10, 2);
     }
 

@@ -135,6 +135,14 @@ class Baserow_Product_Mapper {
             '_last_baserow_sync' => current_time('mysql'),
         ];
 
+        // Debug EAN code processing
+        $this->log_debug("Processing EAN code", [
+            'has_ean_key' => isset($baserow_data['EAN Code']),
+            'ean_value' => $baserow_data['EAN Code'] ?? 'not set',
+            'ean_empty' => empty($baserow_data['EAN Code']),
+            'raw_data' => $baserow_data
+        ]);
+
         // Add EAN code if available
         if (isset($baserow_data['EAN Code']) && !empty($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
@@ -142,7 +150,12 @@ class Baserow_Product_Mapper {
 
             $this->log_debug("Added EAN code to meta data", [
                 'ean' => $ean,
-                'meta_keys' => ['_global_unique_id']
+                'meta_keys' => ['_global_unique_id'],
+                'meta_data' => $meta_data
+            ]);
+        } else {
+            $this->log_debug("No EAN code added to meta data", [
+                'reason' => isset($baserow_data['EAN Code']) ? 'empty value' : 'key not found'
             ]);
         }
 

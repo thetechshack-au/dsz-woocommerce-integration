@@ -94,6 +94,14 @@ class Baserow_Product_Importer {
             $woo_product_id = $product->get_id();
             $this->log_debug("Working with product ID: " . $woo_product_id);
 
+            // Debug incoming product data
+            $this->log_debug("Checking product data for EAN code", [
+                'has_ean_key' => isset($product_data['EAN Code']),
+                'ean_value' => $product_data['EAN Code'] ?? 'not set',
+                'ean_empty' => empty($product_data['EAN Code']),
+                'product_data_keys' => array_keys($product_data)
+            ]);
+
             // Set EAN code if available
             if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
                 $this->log_debug("Setting EAN code for product", [
@@ -101,17 +109,24 @@ class Baserow_Product_Importer {
                     'ean_code' => $product_data['EAN Code']
                 ]);
 
-                update_post_meta($woo_product_id, '_global_unique_id', $product_data['EAN Code']);
+                $update_result = update_post_meta($woo_product_id, '_global_unique_id', $product_data['EAN Code']);
+                $this->log_debug("Update post meta result", [
+                    'success' => $update_result !== false,
+                    'result' => $update_result
+                ]);
 
                 // Verify EAN was saved
                 $saved_ean = get_post_meta($woo_product_id, '_global_unique_id', true);
                 $this->log_debug("EAN code verification", [
                     'saved' => $saved_ean,
                     'original' => $product_data['EAN Code'],
-                    'matches' => ($saved_ean === $product_data['EAN Code'])
+                    'matches' => ($saved_ean === $product_data['EAN Code']),
+                    'all_meta' => get_post_meta($woo_product_id)
                 ]);
             } else {
-                $this->log_debug("No EAN code to set");
+                $this->log_debug("No EAN code to set", [
+                    'reason' => isset($product_data['EAN Code']) ? 'empty value' : 'key not found'
+                ]);
             }
 
             $this->log_debug("Setting basic product data");
@@ -162,9 +177,7 @@ class Baserow_Product_Importer {
             // Set other meta data
             if (!empty($woo_data['meta_data'])) {
                 foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                    if ($meta_key !== '_global_unique_id') {
-                        update_post_meta($woo_product_id, $meta_key, $meta_value);
-                    }
+                    update_post_meta($woo_product_id, $meta_key, $meta_value);
                 }
             }
 

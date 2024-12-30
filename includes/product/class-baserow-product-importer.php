@@ -101,10 +101,10 @@ class Baserow_Product_Importer {
                     'ean_code' => $product_data['EAN Code']
                 ]);
 
-                update_post_meta($woo_product_id, '_global_identifier', $product_data['EAN Code']);
+                update_post_meta($woo_product_id, '_wc_gtin', $product_data['EAN Code']);
 
                 // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, '_global_identifier', true);
+                $saved_ean = get_post_meta($woo_product_id, '_wc_gtin', true);
                 $this->log_debug("EAN code verification", [
                     'saved' => $saved_ean,
                     'original' => $product_data['EAN Code'],
@@ -162,7 +162,7 @@ class Baserow_Product_Importer {
             // Set other meta data
             if (!empty($woo_data['meta_data'])) {
                 foreach ($woo_data['meta_data'] as $meta_key => $meta_value) {
-                    if ($meta_key !== '_global_identifier') {
+                    if ($meta_key !== '_wc_gtin') {
                         update_post_meta($woo_product_id, $meta_key, $meta_value);
                     }
                 }
@@ -173,7 +173,7 @@ class Baserow_Product_Importer {
 
             // Final EAN verification
             if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
-                $final_ean = get_post_meta($woo_product_id, '_global_identifier', true);
+                $final_ean = get_post_meta($woo_product_id, '_wc_gtin', true);
                 $this->log_debug("Final EAN verification", [
                     'product_id' => $woo_product_id,
                     'expected' => $product_data['EAN Code'],

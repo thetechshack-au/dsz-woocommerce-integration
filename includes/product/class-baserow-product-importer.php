@@ -71,12 +71,15 @@ class Baserow_Product_Importer {
             $this->log_debug("Product data received:", $product_data);
 
             // Debug EAN code presence
+            error_log("DEBUG: Raw product data: " . print_r($product_data, true));
             $this->log_debug("EAN Code check:", [
                 'exists' => isset($product_data['EAN Code']),
                 'value' => $product_data['EAN Code'] ?? 'not set',
                 'empty' => empty($product_data['EAN Code']),
                 'type' => gettype($product_data['EAN Code'] ?? null)
             ]);
+            error_log("DEBUG: EAN Code exists: " . (isset($product_data['EAN Code']) ? 'true' : 'false'));
+            error_log("DEBUG: EAN Code value: " . ($product_data['EAN Code'] ?? 'not set'));
 
             // Validate product data
             $validation_result = $this->product_validator->validate_complete_product($product_data);
@@ -122,6 +125,7 @@ class Baserow_Product_Importer {
 
             // Set EAN code if available
             if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
+                error_log("DEBUG: Setting EAN code for product ID: " . $woo_product_id . ", EAN: " . $product_data['EAN Code']);
                 $this->log_debug("Setting EAN code for product", [
                     'product_id' => $woo_product_id,
                     'ean_code' => $product_data['EAN Code']

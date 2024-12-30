@@ -179,12 +179,20 @@ class Baserow_API_Handler {
         }
 
         // Log the raw product data for debugging
+        error_log("DEBUG: Full Baserow response: " . print_r($data, true));
         Baserow_Logger::debug("Raw product data from Baserow:", [
             'id' => $data['id'] ?? 'unknown',
             'sku' => $data['SKU'] ?? 'unknown',
             'ean_code' => $data['EAN Code'] ?? 'not set',
             'all_fields' => array_keys($data)
         ]);
+        
+        // Specifically check for EAN Code field
+        if (isset($data['EAN Code'])) {
+            error_log("DEBUG: Found EAN Code in Baserow data: " . $data['EAN Code']);
+        } else {
+            error_log("DEBUG: No EAN Code field found in Baserow data. Available fields: " . implode(', ', array_keys($data)));
+        }
 
         return $data;
     }

@@ -26,7 +26,10 @@ class Baserow_Logger {
     private static $max_log_size = 5242880;
     
     /** @var string */
-    private static $log_level = 'debug';
+    private static $log_level = 'debug'; // Possible values: emergency, alert, critical, error, warning, notice, info, debug
+
+    /** @var bool */
+    private static $force_debug = true; // Force debug logging regardless of WP_DEBUG
 
     /** @var array */
     private static $valid_levels = ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'];
@@ -42,6 +45,8 @@ class Baserow_Logger {
         }
 
         try {
+            // Force debug logging
+            self::$log_level = 'debug';
             self::setup_log_directory();
             self::check_permissions();
             

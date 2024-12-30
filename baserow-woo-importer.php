@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DropshipZone Products
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.6.8
+ * Version: 1.6.11
  * Last Updated: 2024-01-16 14:00:00 UTC
  * Author: Andrew Waite
  * Requires PHP: 7.2
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.6.8');
+define('BASEROW_IMPORTER_VERSION', '1.6.11');
 define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-16 14:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -33,12 +33,32 @@ class Baserow_Woo_Importer {
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
         add_action('plugins_loaded', array($this, 'init'));
         add_action('before_delete_post', array($this, 'handle_product_deletion'), 10, 1);
+        add_action('rest_api_init', array($this, 'register_rest_fields'));
 
         // Register AJAX actions
         add_action('wp_ajax_import_baserow_product', array($this, 'handle_import_product'));
         add_action('wp_ajax_sync_baserow_product', array($this, 'handle_sync_product'));
         add_action('wp_ajax_get_product_status', array($this, 'handle_get_product_status'));
         add_action('wp_ajax_get_import_stats', array($this, 'handle_get_import_stats'));
+    }
+
+    /**
+     * Register GTIN field with WooCommerce REST API
+     */
+    public function register_rest_fields() {
+        register_rest_field('product', 'global_unique_id', array(
+            'get_callback' => function($post) {
+                return get_post_meta($post['id'], '_global_unique_id', true);
+            },
+            'update_callback' => function($value, $post) {
+                return update_post_meta($post->ID, '_global_unique_id', $value);
+            },
+            'schema' => array(
+                'description' => 'Global Trade Item Number (GTIN)',
+                'type' => 'string',
+                'context' => array('view', 'edit')
+            )
+        ));
     }
 
     public function handle_import_product() {

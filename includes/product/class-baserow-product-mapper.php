@@ -136,6 +136,7 @@ class Baserow_Product_Mapper {
         ];
 
         // Debug EAN code processing
+        error_log("DEBUG: Raw EAN Code value: " . print_r($baserow_data['EAN Code'] ?? 'not set', true));
         $this->log_debug("Processing EAN code", [
             'has_ean_key' => isset($baserow_data['EAN Code']),
             'ean_value' => $baserow_data['EAN Code'] ?? 'not set',
@@ -144,8 +145,9 @@ class Baserow_Product_Mapper {
         ]);
 
         // Add EAN code if available
-        if (isset($baserow_data['EAN Code']) && !empty($baserow_data['EAN Code'])) {
+        if (isset($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
+            error_log("DEBUG: Sanitized EAN Code: " . $ean);
             $meta_data['_global_unique_id'] = $ean;
 
             $this->log_debug("Added EAN code to meta data", [
@@ -153,9 +155,11 @@ class Baserow_Product_Mapper {
                 'meta_keys' => ['_global_unique_id'],
                 'meta_data' => $meta_data
             ]);
+            error_log("DEBUG: Meta data after adding EAN: " . print_r($meta_data, true));
         } else {
             $this->log_debug("No EAN code added to meta data", [
-                'reason' => isset($baserow_data['EAN Code']) ? 'empty value' : 'key not found'
+                'reason' => 'key not found',
+                'available_keys' => array_keys($baserow_data)
             ]);
         }
 

@@ -244,7 +244,7 @@ jQuery(document).ready(function($) {
         Promise.all(importPromises).then(function() {
             hideLoading();
             loadCategories().always(function() {
-                window.location.reload();
+                searchProducts(1);
             });
         });
     }
@@ -311,9 +311,9 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 console.log('Import response:', response);
                 hideLoading();
-                if (response.success && response.data.redirect) {
+                if (response.success) {
                     loadCategories().always(function() {
-                        window.location.reload();
+                        searchProducts(1);
                     });
                 } else if (!response.success) {
                     handleError(response.data.message || 'Import failed');
@@ -348,7 +348,7 @@ jQuery(document).ready(function($) {
                 hideLoading();
                 if (response.success) {
                     loadCategories().always(function() {
-                        window.location.reload();
+                        searchProducts(1);
                     });
                 } else {
                     handleError(response.data.message);

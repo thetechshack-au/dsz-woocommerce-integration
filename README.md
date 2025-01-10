@@ -71,7 +71,11 @@ dsz-woocommerce-integration/
 
 ## Version
 
-Current Version: 1.6.0
+Current Version: 1.6.1
+
+### Recent Changes
+
+- Changed EAN code meta field from `_global_unique_id` to `_agl_ean` for WooCommerce API compatibility
 
 ## Author
 

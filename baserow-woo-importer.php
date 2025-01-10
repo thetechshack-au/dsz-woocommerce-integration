@@ -101,6 +101,10 @@ class Baserow_Woo_Importer {
         error_log('Baserow Logger initialized: ' . (Baserow_Logger::is_logging_enabled() ? 'true' : 'false'));
         error_log('Baserow Logger file: ' . Baserow_Logger::get_log_file());
         
+        // Enable WooCommerce brands feature
+        update_option('wc_feature_woocommerce_brands_enabled', 'yes');
+        update_option('woocommerce_remote_variant_assignment', 2);
+
         $this->create_tables();
         $this->initialize_components();
         
@@ -217,6 +221,10 @@ class Baserow_Woo_Importer {
                 <?php
             });
         }
+
+        // Enable WooCommerce brands feature
+        update_option('wc_feature_woocommerce_brands_enabled', 'yes');
+        update_option('woocommerce_remote_variant_assignment', 2);
 
         $this->initialize_components();
     }

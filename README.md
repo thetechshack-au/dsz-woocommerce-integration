@@ -52,12 +52,38 @@ dsz-woocommerce-integration/
 │   └── js/
 │       ├── admin-script.js
 │       └── settings.js
+├── data/
+│   └── dsz-categories.csv
 ├── includes/
+│   ├── ajax/
+│   │   ├── class-baserow-category-ajax.php
+│   │   ├── class-baserow-order-ajax.php
+│   │   ├── class-baserow-product-ajax.php
+│   │   └── class-baserow-shipping-ajax.php
+│   ├── categories/
+│   │   └── class-baserow-category-manager.php
+│   ├── product/
+│   │   ├── class-baserow-product-image-handler.php
+│   │   ├── class-baserow-product-importer.php
+│   │   ├── class-baserow-product-mapper.php
+│   │   ├── class-baserow-product-tracker.php
+│   │   ├── class-baserow-product-validator.php
+│   │   └── class-baserow-stock-handler.php
+│   ├── shipping/
+│   │   ├── class-baserow-postcode-mapper.php
+│   │   └── class-baserow-shipping-zone-manager.php
+│   ├── traits/
+│   │   ├── trait-baserow-api-request.php
+│   │   ├── trait-baserow-data-validator.php
+│   │   └── trait-baserow-logger.php
 │   ├── class-baserow-admin.php
 │   ├── class-baserow-api-handler.php
+│   ├── class-baserow-auth-handler.php
 │   ├── class-baserow-logger.php
-│   ├── class-baserow-product-importer.php
+│   ├── class-baserow-order-handler.php
 │   └── class-baserow-settings.php
+├── scripts/
+│   └── get_baserow_categories.py
 └── baserow-woo-importer.php
 ```
 
@@ -71,11 +97,34 @@ dsz-woocommerce-integration/
 
 ## Version
 
-Current Version: 1.6.1
+Current Version: 1.6.14
 
 ### Recent Changes
 
-- Changed EAN code meta field from `_global_unique_id` to `_agl_ean` for WooCommerce API compatibility
+- Fixed EAN code meta field from `_agl_ean` to `_alg_ean` for WooCommerce API compatibility
+- Added Python script for fetching and cleaning category names from Baserow
+- Enhanced category name formatting (removes apostrophes, standardizes separators)
+- Improved file structure with modular components and traits
+
+## Scripts
+
+### Category Management
+
+The plugin includes a Python script (`scripts/get_baserow_categories.py`) for managing product categories:
+
+- Fetches categories from Baserow
+- Cleans category names by removing apostrophes and standardizing formatting
+- Saves categorization data to CSV in the data directory
+- Maintains hierarchical category structure
+
+Usage:
+```bash
+python scripts/get_baserow_categories.py <api_url> <table_id> <api_token>
+```
+
+Requirements:
+- Python 3
+- requests library (install in virtual environment: `python -m venv venv && source venv/bin/activate && pip install requests`)
 
 ## Author
 

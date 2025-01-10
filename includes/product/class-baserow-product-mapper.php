@@ -3,7 +3,7 @@
  * Class: Baserow Product Mapper
  * Handles mapping of product data between Baserow and WooCommerce.
  * 
- * @version 1.6.1
+ * @version 1.6.2
  */
 
 if (!defined('ABSPATH')) {

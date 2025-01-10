@@ -131,20 +131,20 @@ class Baserow_Product_Importer {
                 $this->log_debug("Setting brand");
                 $brand = sanitize_text_field($product_data['Brand']);
                 
-                // Check if Perfect WooCommerce Brands is active
-                if (class_exists('Perfect_Woocommerce_Brands') && taxonomy_exists('pwb-brand')) {
-                    $this->log_debug("Perfect WooCommerce Brands is active");
+                // Check if WooCommerce brands feature is enabled
+                if (get_option('wc_feature_woocommerce_brands_enabled') === 'yes') {
+                    $this->log_debug("WooCommerce brands feature is enabled");
                     
                     // Create brand term if it doesn't exist
-                    $term = term_exists($brand, 'pwb-brand');
+                    $term = term_exists($brand, 'brands');
                     if (!$term) {
                         $this->log_debug("Creating new brand term: " . $brand);
-                        $term = wp_insert_term($brand, 'pwb-brand');
+                        $term = wp_insert_term($brand, 'brands');
                     }
                     
                     if (!is_wp_error($term)) {
                         // Set the brand term
-                        $result = wp_set_object_terms($woo_product_id, (int)$term['term_id'], 'pwb-brand');
+                        $result = wp_set_object_terms($woo_product_id, (int)$term['term_id'], 'brands');
                         $this->log_debug("Brand term set result:", [
                             'brand' => $brand,
                             'term_id' => $term['term_id'],
@@ -157,7 +157,7 @@ class Baserow_Product_Importer {
                         ]);
                     }
                 } else {
-                    $this->log_debug("Perfect WooCommerce Brands not active");
+                    $this->log_debug("WooCommerce brands feature not enabled");
                 }
             }
 

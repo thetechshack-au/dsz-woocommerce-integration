@@ -138,11 +138,11 @@ class Baserow_Product_Mapper {
         // Add EAN code if available
         if (isset($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
-            $meta_data['_alg_ean'] = $ean;
+            $meta_data['EAN'] = $ean;
 
             $this->log_debug("Added EAN code to meta data", [
                 'ean' => $ean,
-                'meta_key' => '_alg_ean'
+                'meta_key' => 'EAN'
             ]);
         }
 

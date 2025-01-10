@@ -2,8 +2,8 @@
 /**
  * Class: Baserow Product Importer
  * Description: Main product import handler
- * Version: 1.6.0
- * Last Updated: 2024-01-09 14:00:00 UTC
+ * Version: 1.6.3
+ * Last Updated: 2024-01-16 14:00:00 UTC
  */
 
 if (!defined('ABSPATH')) {
@@ -131,14 +131,14 @@ class Baserow_Product_Importer {
                     'ean_code' => $product_data['EAN Code']
                 ]);
 
-                $update_result = update_post_meta($woo_product_id, '_global_unique_id', $product_data['EAN Code']);
+                $update_result = update_post_meta($woo_product_id, '_alg_ean', $product_data['EAN Code']);
                 $this->log_debug("Update post meta result", [
                     'success' => $update_result !== false,
                     'result' => $update_result
                 ]);
 
                 // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, '_global_unique_id', true);
+                $saved_ean = get_post_meta($woo_product_id, '_alg_ean', true);
                 $this->log_debug("EAN code verification", [
                     'saved' => $saved_ean,
                     'original' => $product_data['EAN Code'],
@@ -171,6 +171,21 @@ class Baserow_Product_Importer {
                 if (!is_wp_error($category_ids)) {
                     $product->set_category_ids($category_ids);
                 }
+            }
+
+            // Set brand
+            if (!empty($product_data['Brand'])) {
+                $this->log_debug("Setting brand");
+                $brand = sanitize_text_field($product_data['Brand']);
+                
+                // Create brand term if it doesn't exist
+                if (!term_exists($brand, 'product_brand')) {
+                    $this->log_debug("Creating new brand term: " . $brand);
+                    wp_insert_term($brand, 'product_brand');
+                }
+                
+                // Set the brand term
+                wp_set_object_terms($woo_product_id, $brand, 'product_brand');
             }
 
             // Set stock information
@@ -208,7 +223,7 @@ class Baserow_Product_Importer {
 
             // Final EAN verification
             if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
-                $final_ean = get_post_meta($woo_product_id, '_global_unique_id', true);
+                $final_ean = get_post_meta($woo_product_id, '_alg_ean', true);
                 $this->log_debug("Final EAN verification", [
                     'product_id' => $woo_product_id,
                     'expected' => $product_data['EAN Code'],

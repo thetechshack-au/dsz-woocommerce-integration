@@ -37,7 +37,8 @@ class Baserow_Product_Validator {
                 'stock' => $this->validate_stock_data($product_data),
                 'dimensions' => $this->validate_dimensions($product_data),
                 'images' => $this->validate_images($product_data),
-                'ean' => $this->validate_ean_code($product_data)
+                'ean' => $this->validate_ean_code($product_data),
+                'brand' => $this->validate_brand($product_data)
             ];
 
             foreach ($validations as $type => $result) {
@@ -324,5 +325,32 @@ class Baserow_Product_Validator {
                 'SKU validation failed: ' . $e->getMessage()
             );
         }
+    }
+
+    /**
+     * Validates brand data
+     *
+     * @param array $product_data
+     * @return true|WP_Error
+     */
+    private function validate_brand(array $product_data): bool|WP_Error {
+        if (isset($product_data['Brand']) && !empty($product_data['Brand'])) {
+            // Ensure brand is a string and not too long
+            if (!is_string($product_data['Brand'])) {
+                return new WP_Error(
+                    'invalid_brand_format',
+                    'Brand must be a text value'
+                );
+            }
+
+            if (strlen($product_data['Brand']) > 255) {
+                $this->log_warning("Brand name exceeds 255 characters", [
+                    'brand' => $product_data['Brand'],
+                    'length' => strlen($product_data['Brand'])
+                ]);
+            }
+        }
+
+        return true;
     }
 }

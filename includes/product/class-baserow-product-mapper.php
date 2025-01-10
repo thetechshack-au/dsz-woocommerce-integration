@@ -3,7 +3,7 @@
  * Class: Baserow Product Mapper
  * Handles mapping of product data between Baserow and WooCommerce.
  * 
- * @version 1.6.2
+ * @version 1.6.3
  */
 
 if (!defined('ABSPATH')) {
@@ -133,33 +133,17 @@ class Baserow_Product_Mapper {
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
             '_last_baserow_sync' => current_time('mysql'),
+            'product_brand' => $baserow_data['Brand'] ?? '',
         ];
-
-        // Debug EAN code processing
-        error_log("DEBUG: Raw EAN Code value: " . print_r($baserow_data['EAN Code'] ?? 'not set', true));
-        $this->log_debug("Processing EAN code", [
-            'has_ean_key' => isset($baserow_data['EAN Code']),
-            'ean_value' => $baserow_data['EAN Code'] ?? 'not set',
-            'ean_empty' => empty($baserow_data['EAN Code']),
-            'raw_data' => $baserow_data
-        ]);
 
         // Add EAN code if available
         if (isset($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
-            error_log("DEBUG: Sanitized EAN Code: " . $ean);
             $meta_data['_alg_ean'] = $ean;
 
             $this->log_debug("Added EAN code to meta data", [
                 'ean' => $ean,
-                'meta_keys' => ['_alg_ean'],
-                'meta_data' => $meta_data
-            ]);
-            error_log("DEBUG: Meta data after adding EAN: " . print_r($meta_data, true));
-        } else {
-            $this->log_debug("No EAN code added to meta data", [
-                'reason' => 'key not found',
-                'available_keys' => array_keys($baserow_data)
+                'meta_key' => '_alg_ean'
             ]);
         }
 

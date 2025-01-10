@@ -148,11 +148,11 @@ class Baserow_Product_Mapper {
         if (isset($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
             error_log("DEBUG: Sanitized EAN Code: " . $ean);
-            $meta_data['_agl_ean'] = $ean;
+            $meta_data['_alg_ean'] = $ean;
 
             $this->log_debug("Added EAN code to meta data", [
                 'ean' => $ean,
-                'meta_keys' => ['_agl_ean'],
+                'meta_keys' => ['_alg_ean'],
                 'meta_data' => $meta_data
             ]);
             error_log("DEBUG: Meta data after adding EAN: " . print_r($meta_data, true));

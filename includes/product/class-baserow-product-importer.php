@@ -173,19 +173,26 @@ class Baserow_Product_Importer {
                 }
             }
 
-            // Set brand
+            // Set brand if taxonomy exists
             if (!empty($product_data['Brand'])) {
                 $this->log_debug("Setting brand");
                 $brand = sanitize_text_field($product_data['Brand']);
                 
-                // Create brand term if it doesn't exist
-                if (!term_exists($brand, 'product_brand')) {
-                    $this->log_debug("Creating new brand term: " . $brand);
-                    wp_insert_term($brand, 'product_brand');
+                // Check if brand taxonomy exists
+                if (taxonomy_exists('product_brand')) {
+                    // Create brand term if it doesn't exist
+                    if (!term_exists($brand, 'product_brand')) {
+                        $this->log_debug("Creating new brand term: " . $brand);
+                        wp_insert_term($brand, 'product_brand');
+                    }
+                    
+                    // Set the brand term
+                    wp_set_object_terms($woo_product_id, $brand, 'product_brand');
+                } else {
+                    // Store as meta if taxonomy doesn't exist
+                    $this->log_debug("Brand taxonomy not found, storing as meta");
+                    update_post_meta($woo_product_id, '_brand', $brand);
                 }
-                
-                // Set the brand term
-                wp_set_object_terms($woo_product_id, $brand, 'product_brand');
             }
 
             // Set stock information

@@ -73,7 +73,8 @@ class Baserow_Product_Mapper {
                 'dimensions' => $this->prepare_dimensions($baserow_data),
                 'shipping_data' => $this->prepare_shipping_data($baserow_data),
                 'stock_data' => $this->prepare_stock_data($baserow_data),
-                'images' => $this->prepare_image_data($baserow_data)
+                'images' => $this->prepare_image_data($baserow_data),
+                'brand' => $this->sanitize_text_field($baserow_data['Brand'] ?? '')
             ];
 
             $this->log_debug("Product mapping completed", [
@@ -138,11 +139,11 @@ class Baserow_Product_Mapper {
         // Add EAN code if available
         if (isset($baserow_data['EAN Code'])) {
             $ean = $this->sanitize_text_field($baserow_data['EAN Code']);
-            $meta_data['EAN'] = $ean;
+            $meta_data['_alg_ean'] = $ean;
 
             $this->log_debug("Added EAN code to meta data", [
                 'ean' => $ean,
-                'meta_key' => 'EAN'
+                'meta_key' => '_alg_ean'
             ]);
         }
 

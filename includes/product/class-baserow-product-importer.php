@@ -126,38 +126,31 @@ class Baserow_Product_Importer {
                 }
             }
 
-            // Set brand
-            if (!empty($product_data['Brand'])) {
-                $this->log_debug("Setting brand");
-                $brand = sanitize_text_field($product_data['Brand']);
+            // Set brand from mapped data
+            if (!empty($woo_data['brand'])) {
+                $this->log_debug("Setting brand from mapped data");
+                $brand = $woo_data['brand'];
                 
-                // Check if WooCommerce brands feature is enabled
-                if (get_option('wc_feature_woocommerce_brands_enabled') === 'yes') {
-                    $this->log_debug("WooCommerce brands feature is enabled");
-                    
-                    // Create brand term if it doesn't exist
-                    $term = term_exists($brand, 'brands');
-                    if (!$term) {
-                        $this->log_debug("Creating new brand term: " . $brand);
-                        $term = wp_insert_term($brand, 'brands');
-                    }
-                    
-                    if (!is_wp_error($term)) {
-                        // Set the brand term
-                        $result = wp_set_object_terms($woo_product_id, (int)$term['term_id'], 'brands');
-                        $this->log_debug("Brand term set result:", [
-                            'brand' => $brand,
-                            'term_id' => $term['term_id'],
-                            'result' => $result
-                        ]);
-                    } else {
-                        $this->log_error("Failed to handle brand term", [
-                            'brand' => $brand,
-                            'error' => $term->get_error_message()
-                        ]);
-                    }
+                // Create brand term if it doesn't exist
+                $term = term_exists($brand, 'brands');
+                if (!$term) {
+                    $this->log_debug("Creating new brand term: " . $brand);
+                    $term = wp_insert_term($brand, 'brands');
+                }
+                
+                if (!is_wp_error($term)) {
+                    // Set the brand term
+                    $result = wp_set_object_terms($woo_product_id, (int)$term['term_id'], 'brands');
+                    $this->log_debug("Brand term set result:", [
+                        'brand' => $brand,
+                        'term_id' => $term['term_id'],
+                        'result' => $result
+                    ]);
                 } else {
-                    $this->log_debug("WooCommerce brands feature not enabled");
+                    $this->log_error("Failed to handle brand term", [
+                        'brand' => $brand,
+                        'error' => $term->get_error_message()
+                    ]);
                 }
             }
 

@@ -66,9 +66,10 @@ def clean_category_name(name: str) -> str:
 def parse_category(full_category: str) -> Dict[str, str]:
     """Parse a full category path into its components."""
     parts = [clean_category_name(part.strip()) for part in full_category.split(' > ')]
+    cleaned_full_path = ' > '.join(parts)
     
     return {
-        'full_path': full_category,
+        'full_path': cleaned_full_path,
         'top_category': parts[0],
         'parent_category': parts[1] if len(parts) > 2 else '',
         'category_name': parts[-1],

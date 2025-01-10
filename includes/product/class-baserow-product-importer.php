@@ -70,17 +70,6 @@ class Baserow_Product_Importer {
 
             $this->log_debug("Product data received:", $product_data);
 
-            // Debug EAN code presence
-            error_log("DEBUG: Raw product data: " . print_r($product_data, true));
-            $this->log_debug("EAN Code check:", [
-                'exists' => isset($product_data['EAN Code']),
-                'value' => $product_data['EAN Code'] ?? 'not set',
-                'empty' => empty($product_data['EAN Code']),
-                'type' => gettype($product_data['EAN Code'] ?? null)
-            ]);
-            error_log("DEBUG: EAN Code exists: " . (isset($product_data['EAN Code']) ? 'true' : 'false'));
-            error_log("DEBUG: EAN Code value: " . ($product_data['EAN Code'] ?? 'not set'));
-
             // Validate product data
             $validation_result = $this->product_validator->validate_complete_product($product_data);
             if (is_wp_error($validation_result)) {
@@ -115,42 +104,6 @@ class Baserow_Product_Importer {
             $woo_product_id = $product->get_id();
             $this->log_debug("Working with product ID: " . $woo_product_id);
 
-            // Debug incoming product data
-            $this->log_debug("Checking product data for EAN code", [
-                'has_ean_key' => isset($product_data['EAN Code']),
-                'ean_value' => $product_data['EAN Code'] ?? 'not set',
-                'ean_empty' => empty($product_data['EAN Code']),
-                'product_data_keys' => array_keys($product_data)
-            ]);
-
-            // Set EAN code if available
-            if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
-                error_log("DEBUG: Setting EAN code for product ID: " . $woo_product_id . ", EAN: " . $product_data['EAN Code']);
-                $this->log_debug("Setting EAN code for product", [
-                    'product_id' => $woo_product_id,
-                    'ean_code' => $product_data['EAN Code']
-                ]);
-
-                $update_result = update_post_meta($woo_product_id, '_alg_ean', $product_data['EAN Code']);
-                $this->log_debug("Update post meta result", [
-                    'success' => $update_result !== false,
-                    'result' => $update_result
-                ]);
-
-                // Verify EAN was saved
-                $saved_ean = get_post_meta($woo_product_id, '_alg_ean', true);
-                $this->log_debug("EAN code verification", [
-                    'saved' => $saved_ean,
-                    'original' => $product_data['EAN Code'],
-                    'matches' => ($saved_ean === $product_data['EAN Code']),
-                    'all_meta' => get_post_meta($woo_product_id)
-                ]);
-            } else {
-                $this->log_debug("No EAN code to set", [
-                    'reason' => isset($product_data['EAN Code']) ? 'empty value' : 'key not found'
-                ]);
-            }
-
             $this->log_debug("Setting basic product data");
 
             // Set basic product data
@@ -173,25 +126,38 @@ class Baserow_Product_Importer {
                 }
             }
 
-            // Set brand if taxonomy exists
+            // Set brand
             if (!empty($product_data['Brand'])) {
                 $this->log_debug("Setting brand");
                 $brand = sanitize_text_field($product_data['Brand']);
                 
-                // Check if brand taxonomy exists
-                if (taxonomy_exists('product_brand')) {
+                // Check if Perfect WooCommerce Brands is active
+                if (class_exists('Perfect_Woocommerce_Brands') && taxonomy_exists('pwb-brand')) {
+                    $this->log_debug("Perfect WooCommerce Brands is active");
+                    
                     // Create brand term if it doesn't exist
-                    if (!term_exists($brand, 'product_brand')) {
+                    $term = term_exists($brand, 'pwb-brand');
+                    if (!$term) {
                         $this->log_debug("Creating new brand term: " . $brand);
-                        wp_insert_term($brand, 'product_brand');
+                        $term = wp_insert_term($brand, 'pwb-brand');
                     }
                     
-                    // Set the brand term
-                    wp_set_object_terms($woo_product_id, $brand, 'product_brand');
+                    if (!is_wp_error($term)) {
+                        // Set the brand term
+                        $result = wp_set_object_terms($woo_product_id, (int)$term['term_id'], 'pwb-brand');
+                        $this->log_debug("Brand term set result:", [
+                            'brand' => $brand,
+                            'term_id' => $term['term_id'],
+                            'result' => $result
+                        ]);
+                    } else {
+                        $this->log_error("Failed to handle brand term", [
+                            'brand' => $brand,
+                            'error' => $term->get_error_message()
+                        ]);
+                    }
                 } else {
-                    // Store as meta if taxonomy doesn't exist
-                    $this->log_debug("Brand taxonomy not found, storing as meta");
-                    update_post_meta($woo_product_id, '_brand', $brand);
+                    $this->log_debug("Perfect WooCommerce Brands not active");
                 }
             }
 
@@ -227,17 +193,6 @@ class Baserow_Product_Importer {
 
             // Save product
             $product->save();
-
-            // Final EAN verification
-            if (isset($product_data['EAN Code']) && !empty($product_data['EAN Code'])) {
-                $final_ean = get_post_meta($woo_product_id, '_alg_ean', true);
-                $this->log_debug("Final EAN verification", [
-                    'product_id' => $woo_product_id,
-                    'expected' => $product_data['EAN Code'],
-                    'actual' => $final_ean,
-                    'matches' => ($final_ean === $product_data['EAN Code'])
-                ]);
-            }
 
             // Handle images
             if (!empty($woo_data['images'])) {

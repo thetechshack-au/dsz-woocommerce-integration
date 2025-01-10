@@ -133,7 +133,6 @@ class Baserow_Product_Mapper {
             '_cost_price' => $cost_price,
             '_baserow_id' => $baserow_data['id'] ?? '',
             '_last_baserow_sync' => current_time('mysql'),
-            '_brand' => $baserow_data['Brand'] ?? '',
         ];
 
         // Add EAN code if available

@@ -2,8 +2,8 @@
 /**
  * Plugin Name: DropshipZone Products
  * Description: Import products from Baserow (DSZ) database into WooCommerce and sync orders with DSZ
- * Version: 1.6.16
- * Last Updated: 2024-01-17 17:00:00 UTC
+ * Version: 1.6.17
+ * Last Updated: 2024-01-17 18:00:00 UTC
  * Author: Andrew Waite
  * Requires PHP: 7.2
  */
@@ -12,8 +12,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BASEROW_IMPORTER_VERSION', '1.6.16');
-define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-17 17:00:00 UTC');
+define('BASEROW_IMPORTER_VERSION', '1.6.17');
+define('BASEROW_IMPORTER_LAST_UPDATED', '2024-01-17 18:00:00 UTC');
 define('BASEROW_IMPORTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BASEROW_IMPORTER_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BASEROW_USE_NEW_STRUCTURE', true);

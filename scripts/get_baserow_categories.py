@@ -53,9 +53,13 @@ def get_categories(api_url: str, table_id: str, api_token: str) -> Set[str]:
     
     return categories
 
+def clean_category_name(name: str) -> str:
+    """Clean category name by removing apostrophes."""
+    return name.replace("'", "")
+
 def parse_category(full_category: str) -> Dict[str, str]:
     """Parse a full category path into its components."""
-    parts = full_category.split(' > ')
+    parts = [clean_category_name(part.strip()) for part in full_category.split(' > ')]
     
     return {
         'full_path': full_category,
@@ -104,7 +108,7 @@ def main():
     api_url = sys.argv[1].rstrip('/')  # Remove trailing slash if present
     table_id = sys.argv[2]
     api_token = sys.argv[3]
-    output_file = 'dsz-categories.csv'
+    output_file = 'data/dsz-categories.csv'
     
     print("Fetching categories from Baserow...")
     categories = get_categories(api_url, table_id, api_token)

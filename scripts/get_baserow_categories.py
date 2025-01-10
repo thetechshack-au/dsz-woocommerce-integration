@@ -54,8 +54,14 @@ def get_categories(api_url: str, table_id: str, api_token: str) -> Set[str]:
     return categories
 
 def clean_category_name(name: str) -> str:
-    """Clean category name by removing apostrophes."""
-    return name.replace("'", "")
+    """Clean category name by removing apostrophes and standardizing formatting."""
+    # Remove apostrophes
+    name = name.replace("'", "")
+    # Remove quotes
+    name = name.replace('"', '')
+    # Replace comma-space with &
+    name = name.replace(", ", " & ")
+    return name
 
 def parse_category(full_category: str) -> Dict[str, str]:
     """Parse a full category path into its components."""
